@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# retry-with-backoff.sh — Exponential backoff retry wrapper
+# Args: [--ticket=ID] $1=max_retries $2=base_delay_ms -- command args...
+# Backoff: base, base*4, base*15 (≈2s, 8s, 30s with defaults)
+# Exit 0 on success, exit 1 on exhaustion
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AGENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Load .env for defaults
+if [[ -f "$AGENT_ROOT/.env" ]]; then
+  # shellcheck disable=SC1091
+  source "$AGENT_ROOT/.env"
+fi
+
+# Optional --ticket=ID for logging
+ticket_id=""
+if [[ "${1:-}" =~ ^--ticket=(.+)$ ]]; then
+  ticket_id="${BASH_REMATCH[1]}"
+  shift
+fi
+
+max_retries="${1:-${AGENT_RATE_LIMIT_MAX_RETRIES:-3}}"
+base_delay_ms="${2:-${AGENT_RATE_LIMIT_BASE_DELAY_MS:-2000}}"
+
+# Find the -- separator
+shift 2 || true
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
+
+if [[ $# -eq 0 ]]; then
+  echo "Usage: retry-with-backoff.sh [--ticket=ID] [max_retries] [base_delay_ms] -- command args..." >&2
+  exit 1
+fi
+
+# Log helper — logs to run.log if ticket_id is set
+log_retry() {
+  local level="$1" msg="$2" details="$3"
+  if [[ -n "$ticket_id" ]]; then
+    "$SCRIPT_DIR/run-log.sh" "$ticket_id" "$level" "retry" "$msg" "$details" 2>/dev/null || true
+  fi
+}
+
+# Backoff multipliers: 1x, 4x, 15x
+multipliers=(1 4 15)
+cmd_str="$*"
+
+attempt=0
+while [[ $attempt -lt $max_retries ]]; do
+  attempt=$((attempt + 1))
+
+  if "$@" 2>&1; then
+    if [[ $attempt -gt 1 ]]; then
+      log_retry "INFO" "Retry succeeded on attempt $attempt/$max_retries: $cmd_str" \
+        "{\"attempt\":$attempt,\"max_retries\":$max_retries,\"command\":\"$cmd_str\"}"
+    fi
+    exit 0
+  fi
+
+  if [[ $attempt -ge $max_retries ]]; then
+    break
+  fi
+
+  # Calculate delay
+  mult_index=$((attempt - 1))
+  if [[ $mult_index -ge ${#multipliers[@]} ]]; then
+    mult_index=$(( ${#multipliers[@]} - 1 ))
+  fi
+  delay_ms=$(( base_delay_ms * ${multipliers[$mult_index]} ))
+  delay_s=$(echo "scale=1; $delay_ms / 1000" | bc 2>/dev/null || echo "$((delay_ms / 1000))")
+
+  echo "[retry] Attempt $attempt/$max_retries failed. Retrying in ${delay_s}s..." >&2
+  log_retry "WARN" "Attempt $attempt/$max_retries failed, retrying in ${delay_s}s: $cmd_str" \
+    "{\"attempt\":$attempt,\"max_retries\":$max_retries,\"delay_ms\":$delay_ms,\"command\":\"$cmd_str\"}"
+  sleep "$((delay_ms / 1000))"
+done
+
+echo "[retry] All $max_retries attempts exhausted." >&2
+log_retry "ERROR" "All $max_retries attempts exhausted: $cmd_str" \
+  "{\"attempt\":$max_retries,\"max_retries\":$max_retries,\"command\":\"$cmd_str\"}"
+
+# Notify on exhaustion
+if [[ -n "$ticket_id" ]]; then
+  "$SCRIPT_DIR/notify.sh" "$ticket_id" "rate_limit" \
+    "Rate limit retries exhausted ($max_retries attempts): $cmd_str" \
+    "{\"attempts\":$max_retries}" 2>/dev/null || true
+fi
+
+exit 1

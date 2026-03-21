@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "feedback.schema.json",
+  "title": "Feedback",
+  "description": "PR Monitor output — human reviewer comments and CI failures parsed into actionable items",
+  "type": "object",
+  "required": ["pr", "round", "source", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "pr": {
+      "type": "string",
+      "description": "PR identifier (number or URL)"
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Feedback round number"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["reviewer_comments", "ci_failure", "mixed"],
+      "description": "Source of feedback"
+    },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feedback_item" }
+    }
+  },
+  "$defs": {
+    "feedback_item": {
+      "type": "object",
+      "required": ["id", "type", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^feedback-\\d+$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["change_request", "ci_failure", "question", "nitpick"],
+          "description": "Category of feedback"
+        },
+        "file": {
+          "type": ["string", "null"],
+          "description": "File path (for code comments)"
+        },
+        "line": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Line number (for code comments)"
+        },
+        "comment": {
+          "type": "string",
+          "description": "Reviewer comment text"
+        },
+        "test": {
+          "type": ["string", "null"],
+          "description": "Test name (for CI failures)"
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error output (for CI failures)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "addressed", "wont_fix", "escalated"],
+          "description": "Resolution status"
+        }
+      }
+    }
+  }
+}

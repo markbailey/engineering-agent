@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "repair.schema.json",
+  "title": "Repair Knowledge",
+  "description": "Cross-run repair knowledge base — successful alternatives for tool/environment failures",
+  "type": "object",
+  "required": ["version", "last_updated", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/repair_entry" }
+    }
+  },
+  "$defs": {
+    "repair_entry": {
+      "type": "object",
+      "required": ["id", "agent", "operation", "failed_approach", "failure_reason", "error_pattern", "successful_alternative", "confidence", "occurrences", "last_seen"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^repair-\\d+$"
+        },
+        "agent": {
+          "type": "string",
+          "description": "Agent that encountered the failure"
+        },
+        "operation": {
+          "type": "string",
+          "description": "Operation that failed (e.g. install_dependencies, run_integration_tests)"
+        },
+        "failed_approach": {
+          "type": "string",
+          "description": "Command or approach that failed"
+        },
+        "failure_reason": {
+          "type": "string",
+          "description": "Human-readable reason for the failure"
+        },
+        "error_pattern": {
+          "type": "string",
+          "description": "Regex or substring to match in error output"
+        },
+        "successful_alternative": {
+          "type": "string",
+          "description": "Command or approach that worked"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "failed"],
+          "description": "high=3+ successes, medium=1-2, low=1 experimental, failed=also failed"
+        },
+        "occurrences": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of times the alternative succeeded"
+        },
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

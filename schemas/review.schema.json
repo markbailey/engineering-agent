@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "review.schema.json",
+  "title": "Review",
+  "description": "The Critic's internal review output — verdict, code review items, test quality, PRD adherence",
+  "type": "object",
+  "required": ["ticket", "round", "verdict", "requirements_met", "code_review", "test_quality", "prd_adherence", "summary", "proceed_to_pr"],
+  "additionalProperties": false,
+  "properties": {
+    "ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-\\d+$"
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Review round number (max 3 before escalation)"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["approved", "changes_required", "escalate"],
+      "description": "Overall review verdict"
+    },
+    "requirements_met": {
+      "$ref": "#/$defs/requirements_met"
+    },
+    "code_review": {
+      "$ref": "#/$defs/code_review"
+    },
+    "test_quality": {
+      "$ref": "#/$defs/test_quality"
+    },
+    "prd_adherence": {
+      "$ref": "#/$defs/prd_adherence"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-line summary of verdict"
+    },
+    "proceed_to_pr": {
+      "type": "boolean",
+      "description": "True only when verdict is approved"
+    }
+  },
+  "$defs": {
+    "requirements_met": {
+      "type": "object",
+      "required": ["overall", "criteria"],
+      "additionalProperties": false,
+      "properties": {
+        "overall": {
+          "type": "boolean"
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["criterion", "met", "comment"],
+            "additionalProperties": false,
+            "properties": {
+              "criterion": { "type": "string" },
+              "met": { "type": "boolean" },
+              "comment": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "code_review": {
+      "type": "object",
+      "required": ["items"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "severity", "type", "file", "line", "comment", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^review-\\d+$" },
+              "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+              "type": { "type": "string", "description": "Category: security, logic, performance, style, etc." },
+              "file": { "type": "string" },
+              "line": { "type": "integer", "minimum": 1 },
+              "comment": { "type": "string", "minLength": 1 },
+              "status": { "type": "string", "enum": ["pending", "fixed", "wont_fix", "escalated"] }
+            }
+          }
+        }
+      }
+    },
+    "test_quality": {
+      "type": "object",
+      "required": ["verdict", "comment"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": { "type": "string", "enum": ["sufficient", "insufficient"] },
+        "comment": { "type": "string" }
+      }
+    },
+    "prd_adherence": {
+      "type": "object",
+      "required": ["verdict", "deviations"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": { "type": "string", "enum": ["full", "partial", "none"] },
+        "deviations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

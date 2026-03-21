@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict.schema.json",
+  "title": "Conflict",
+  "description": "Conflict Resolution Agent output — merge conflicts, regression guard results, orphan checks",
+  "type": "object",
+  "required": ["ticket", "base_branch", "feature_branch", "base_commit", "had_conflicts", "conflicted_files", "regression_guard", "orphan_check", "unresolvable_files", "escalation_reason", "overall_status"],
+  "additionalProperties": false,
+  "properties": {
+    "ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-\\d+$"
+    },
+    "base_branch": {
+      "type": "string"
+    },
+    "feature_branch": {
+      "type": "string"
+    },
+    "base_commit": {
+      "type": "string",
+      "description": "Base branch commit SHA at merge time"
+    },
+    "had_conflicts": {
+      "type": "boolean"
+    },
+    "conflicted_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "conflict_type", "resolution", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string" },
+          "conflict_type": {
+            "type": "string",
+            "enum": ["both_modified", "modify_delete", "add_add", "rename_rename", "rename_delete"]
+          },
+          "resolution": {
+            "type": "string",
+            "enum": ["feature_priority", "base_priority", "manual_merge", "escalated"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["resolved", "unresolvable", "escalated"]
+          }
+        }
+      }
+    },
+    "regression_guard": {
+      "type": "object",
+      "required": ["compilation", "diff_analysis", "test_suite", "issues_found"],
+      "additionalProperties": false,
+      "properties": {
+        "compilation": { "type": "string", "enum": ["pass", "fail", "skipped"] },
+        "diff_analysis": { "type": "string", "enum": ["pass", "fail", "skipped"] },
+        "test_suite": { "type": "string", "enum": ["pass", "fail", "skipped"] },
+        "issues_found": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "orphan_check": {
+      "type": "object",
+      "required": ["status", "deleted_callsites", "renamed_references", "dead_exports", "disconnected_integrations"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["pass", "fail", "skipped"] },
+        "deleted_callsites": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "renamed_references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["old_name", "new_name", "files_updated", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "old_name": { "type": "string" },
+              "new_name": { "type": "string" },
+              "files_updated": { "type": "array", "items": { "type": "string" } },
+              "status": { "type": "string", "enum": ["resolved", "escalated"] }
+            }
+          }
+        },
+        "dead_exports": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "disconnected_integrations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "unresolvable_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "escalation_reason": {
+      "type": ["string", "null"]
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["resolved", "partial", "escalated"]
+    },
+    "merge_commit": {
+      "type": ["string", "null"],
+      "description": "Merge commit SHA (null if escalated)"
+    }
+  }
+}

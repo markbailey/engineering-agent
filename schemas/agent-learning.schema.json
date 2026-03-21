@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-learning.schema.json",
+  "title": "Agent Learning",
+  "description": "Cross-run behavioural learning — patterns detected by Run Analyst, standing instructions injected at runtime",
+  "type": "object",
+  "required": ["version", "last_updated", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/learning_entry" }
+    }
+  },
+  "$defs": {
+    "learning_entry": {
+      "type": "object",
+      "required": ["id", "agent", "pattern_description", "detection_source", "standing_instruction", "first_detected", "last_seen", "occurrences", "runs_since_instruction", "recurrences_after_instruction", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^learn-\\d+$"
+        },
+        "agent": {
+          "type": "string",
+          "description": "Agent exhibiting the pattern"
+        },
+        "pattern_description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the recurring issue is"
+        },
+        "detection_source": {
+          "type": "string",
+          "description": "Which artefacts and tickets the pattern was detected from"
+        },
+        "standing_instruction": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Instruction injected into the agent's context on future runs"
+        },
+        "first_detected": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "occurrences": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of runs where pattern was observed"
+        },
+        "runs_since_instruction": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Runs completed since instruction was added"
+        },
+        "recurrences_after_instruction": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Times pattern recurred after instruction was active (2+ triggers persistent escalation)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "resolved", "persistent"],
+          "description": "active=instruction injected, resolved=5 clean runs, persistent=2+ recurrences after instruction"
+        }
+      }
+    }
+  }
+}

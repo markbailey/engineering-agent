@@ -1,0 +1,11 @@
+# Gitleaks configuration for engineering-agent
+# https://github.com/gitleaks/gitleaks
+
+title = "engineering-agent gitleaks config"
+
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    '''\.gitleaks\.toml''',
+    '''\.env\.example''',
+  ]
