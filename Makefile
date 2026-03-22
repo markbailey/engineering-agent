@@ -1,8 +1,10 @@
 # Engineering Agent — Workflow Runner
-# Usage: make start ISSUE=PROJ-123 [FLAGS="--dry-run --ready-pr"]
+# Usage: make start PROJ-123 [--ready-pr ...]
 
-ISSUE ?=
-FLAGS  ?=
+# Capture all args after the target
+ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+ISSUE := $(word 1,$(ARGS))
+EXTRA := $(wordlist 2,$(words $(ARGS)),$(ARGS))
 
 .PHONY: help start dry-run resume pause stop
 .DEFAULT_GOAL := help
@@ -10,7 +12,7 @@ FLAGS  ?=
 help:
 	@echo "Engineering Agent — Workflow Runner"
 	@echo ""
-	@echo "Usage: make <target> ISSUE=PROJ-123"
+	@echo "Usage: make <target> PROJ-123 [flags...]"
 	@echo ""
 	@echo "Targets:"
 	@echo "  start    Full ticket-to-PR workflow"
@@ -20,36 +22,31 @@ help:
 	@echo "  stop     Immediate stop, preserve state"
 	@echo "  help     Show this message"
 	@echo ""
-	@echo "Options:"
-	@echo "  ISSUE   Jira ticket ID (required)"
-	@echo '  FLAGS    Extra flags, e.g. FLAGS="--ready-pr"'
+	@echo "Examples:"
+	@echo "  make start PROJ-123"
+	@echo "  make start PROJ-123 --ready-pr"
+	@echo "  make resume PROJ-123"
 
-start:
-ifndef ISSUE
-	$(error ISSUE is required. Usage: make start ISSUE=PROJ-123)
-endif
-	claude "/start $(ISSUE) $(FLAGS)"
+start: _require-issue
+	claude "/start $(ISSUE) $(EXTRA)"
 
-dry-run:
-ifndef ISSUE
-	$(error ISSUE is required. Usage: make dry-run ISSUE=PROJ-123)
-endif
-	claude "/start $(ISSUE) --dry-run"
+dry-run: _require-issue
+	claude "/start $(ISSUE) --dry-run $(EXTRA)"
 
-resume:
-ifndef ISSUE
-	$(error ISSUE is required. Usage: make resume ISSUE=PROJ-123)
-endif
-	claude "/start $(ISSUE) --resume $(FLAGS)"
+resume: _require-issue
+	claude "/start $(ISSUE) --resume $(EXTRA)"
 
-pause:
-ifndef ISSUE
-	$(error ISSUE is required. Usage: make pause ISSUE=PROJ-123)
-endif
+pause: _require-issue
 	claude "/start $(ISSUE) --pause"
 
-stop:
-ifndef ISSUE
-	$(error ISSUE is required. Usage: make stop ISSUE=PROJ-123)
-endif
+stop: _require-issue
 	claude "/start $(ISSUE) --stop"
+
+_require-issue:
+ifndef ISSUE
+	$(error Ticket ID required. Usage: make start PROJ-123)
+endif
+
+# Prevent make from treating extra args as targets
+%:
+	@:
