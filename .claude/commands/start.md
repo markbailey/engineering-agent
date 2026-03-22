@@ -1,9 +1,9 @@
 ---
-name: implement
+name: start
 description: 'Orchestrate multi-agent implementation of a JIRA ticket. Parses args, runs startup, delegates to agents per CLAUDE.md workflow. Args: TICKET-ID [--dry-run] [--resume] [--ready-pr] [--pause] [--stop]'
 ---
 
-# /implement — Orchestrator Entry Point
+# /start — Orchestrator Entry Point
 
 Execute the full multi-agent engineering workflow defined in CLAUDE.md.
 
