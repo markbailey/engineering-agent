@@ -28,28 +28,28 @@ start:
 ifndef ISSUE
 	$(error ISSUE is required. Usage: make start ISSUE=PROJ-123)
 endif
-	claude "/start $(ISSUE) $(FLAGS)"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) $(FLAGS)"
 
 dry-run:
 ifndef ISSUE
 	$(error ISSUE is required. Usage: make dry-run ISSUE=PROJ-123)
 endif
-	claude "/start $(ISSUE) --dry-run"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --dry-run"
 
 resume:
 ifndef ISSUE
 	$(error ISSUE is required. Usage: make resume ISSUE=PROJ-123)
 endif
-	claude "/start $(ISSUE) --resume $(FLAGS)"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --resume $(FLAGS)"
 
 pause:
 ifndef ISSUE
 	$(error ISSUE is required. Usage: make pause ISSUE=PROJ-123)
 endif
-	claude "/start $(ISSUE) --pause"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --pause"
 
 stop:
 ifndef ISSUE
 	$(error ISSUE is required. Usage: make stop ISSUE=PROJ-123)
 endif
-	claude "/start $(ISSUE) --stop"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --stop"

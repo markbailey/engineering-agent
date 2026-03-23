@@ -16,10 +16,10 @@ title="$3"
 issue_type="$4"
 
 # Lowercase everything
-employee_code="${employee_code,,}"
-issue_id="${issue_id,,}"
-title="${title,,}"
-issue_type="${issue_type,,}"
+employee_code="$(echo "$employee_code" | tr '[:upper:]' '[:lower:]')"
+issue_id="$(echo "$issue_id" | tr '[:upper:]' '[:lower:]')"
+title="$(echo "$title" | tr '[:upper:]' '[:lower:]')"
+issue_type="$(echo "$issue_type" | tr '[:upper:]' '[:lower:]')"
 
 # Map issue type to branch type
 case "$issue_type" in
