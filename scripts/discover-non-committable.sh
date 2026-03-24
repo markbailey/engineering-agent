@@ -43,12 +43,15 @@ fi
 
 # Merge known patterns + gitignore patterns, deduplicate
 all_patterns=()
-declare -A seen
+_seen_list=""
 for p in "${KNOWN_PATTERNS[@]}" "${gitignore_patterns[@]}"; do
-  if [[ -z "${seen[$p]:-}" ]]; then
-    all_patterns+=("$p")
-    seen[$p]=1
-  fi
+  case "$_seen_list" in
+    *"|$p|"*) ;;
+    *)
+      all_patterns+=("$p")
+      _seen_list="${_seen_list}|$p|"
+      ;;
+  esac
 done
 
 # Find matching files in source root (non-recursive, files only)

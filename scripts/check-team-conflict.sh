@@ -33,7 +33,7 @@ for arg in "$@"; do
   esac
 done
 
-ticket_lower="${ticket_id,,}"
+ticket_lower="$(echo "$ticket_id" | tr '[:upper:]' '[:lower:]')"
 agent_code="${AGENT_EMPLOYEE_CODE:-}"
 conflicts=()
 

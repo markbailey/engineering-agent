@@ -26,7 +26,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Collect current versions
-declare -A current_versions
 json="{"
 first=true
 
@@ -67,7 +66,6 @@ for md_file in "$AGENTS_DIR"/*.md; do
   fi
 
   if [[ -n "$version" ]]; then
-    current_versions["$agent_name"]="$version"
     if ! $first; then
       json="$json,"
     fi

@@ -49,11 +49,12 @@ if [[ -n "$repo_name" ]]; then
   # Single repo cleanup — find worktree by scanning for ticket ID in branch names
   repo_wt_dir="$WORKTREES_BASE/${repo_name}"
   if [[ -d "$repo_wt_dir" ]]; then
-    ticket_lower="${ticket_id,,}"
+    ticket_lower="$(echo "$ticket_id" | tr '[:upper:]' '[:lower:]')"
     for wt in "$repo_wt_dir"/*/; do
       [[ -d "$wt" ]] || continue
       branch_name="$(basename "$wt")"
-      if [[ "${branch_name,,}" == *"${ticket_lower}"* ]]; then
+      branch_lower="$(echo "$branch_name" | tr '[:upper:]' '[:lower:]')"
+      if [[ "$branch_lower" == *"${ticket_lower}"* ]]; then
         # Remove worktree via target repo
         if [[ -n "$target_repo" ]]; then
           git -C "$target_repo" worktree remove "$wt" --force 2>/dev/null || true
@@ -68,13 +69,14 @@ if [[ -n "$repo_name" ]]; then
   fi
 else
   # Clean all repos — scan all repo dirs for matching ticket ID
-  ticket_lower="${ticket_id,,}"
+  ticket_lower="$(echo "$ticket_id" | tr '[:upper:]' '[:lower:]')"
   for repo_dir in "$WORKTREES_BASE"/*/; do
     [[ -d "$repo_dir" ]] || continue
     for wt in "$repo_dir"*/; do
       [[ -d "$wt" ]] || continue
       branch_name="$(basename "$wt")"
-      if [[ "${branch_name,,}" == *"${ticket_lower}"* ]]; then
+      branch_lower="$(echo "$branch_name" | tr '[:upper:]' '[:lower:]')"
+      if [[ "$branch_lower" == *"${ticket_lower}"* ]]; then
         r_name="$(basename "$repo_dir")"
         git worktree remove "$wt" --force 2>/dev/null || rm -rf "$wt"
         echo "Removed worktree: ${r_name}/${branch_name}"

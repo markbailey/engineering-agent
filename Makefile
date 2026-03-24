@@ -28,19 +28,19 @@ help:
 	@echo "  make resume PROJ-123"
 
 start: _require-issue
-	claude "/start $(ISSUE) $(EXTRA)"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) $(EXTRA)"
 
 dry-run: _require-issue
-	claude "/start $(ISSUE) --dry-run $(EXTRA)"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --dry-run $(EXTRA)"
 
 resume: _require-issue
-	claude "/start $(ISSUE) --resume $(EXTRA)"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --resume $(EXTRA)"
 
 pause: _require-issue
-	claude "/start $(ISSUE) --pause"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --pause"
 
 stop: _require-issue
-	claude "/start $(ISSUE) --stop"
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --stop"
 
 _require-issue:
 ifndef ISSUE

@@ -42,8 +42,9 @@ fi
 
 # Validate prefix matches employee code
 prefix="${branch%%_*}"
-if [[ "$prefix" != "${AGENT_EMPLOYEE_CODE,,}" ]]; then
-  echo "{\"valid\":false,\"error\":\"Branch prefix '$prefix' does not match AGENT_EMPLOYEE_CODE '${AGENT_EMPLOYEE_CODE,,}'\"}" >&2
+agent_code_lower="$(echo "$AGENT_EMPLOYEE_CODE" | tr '[:upper:]' '[:lower:]')"
+if [[ "$prefix" != "$agent_code_lower" ]]; then
+  echo "{\"valid\":false,\"error\":\"Branch prefix '$prefix' does not match AGENT_EMPLOYEE_CODE '$agent_code_lower'\"}" >&2
   exit 1
 fi
 
