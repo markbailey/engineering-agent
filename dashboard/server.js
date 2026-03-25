@@ -43,25 +43,21 @@ function createDashboardServer(opts = {}) {
 
       const run = runs.get(ticketId);
 
+      const prevJson = run.state ? JSON.stringify(run.state) : '';
+
       // Tail log file
       const newLines = tailer.tail(logFile);
-      if (newLines.length > 0) {
-        for (const line of newLines) {
-          const entry = parseLogLine(line);
-          if (entry) run.logs.push(entry);
-        }
-        changed = true;
+      for (const line of newLines) {
+        const entry = parseLogLine(line);
+        if (entry) run.logs.push(entry);
       }
 
       // Rebuild state (cheap — always rebuild to pick up artifact changes)
       const newState = buildRunState(ticketId, run.logs);
-
-      // Merge artifacts
       const artifacts = loadArtifacts(ticketDir);
       run.state = mergeArtifacts(newState, artifacts);
 
-      // Detect artifact changes even without new log lines
-      if (!changed && run.state && artifactsChanged(run, artifacts)) {
+      if (JSON.stringify(run.state) !== prevJson) {
         changed = true;
       }
     }
@@ -77,12 +73,6 @@ function createDashboardServer(opts = {}) {
     if (changed) {
       broadcast();
     }
-  }
-
-  function artifactsChanged(run, artifacts) {
-    // Simple heuristic: check if hasPrd changed
-    if (!run.state) return true;
-    return run.state.artifacts.hasPrd !== !!artifacts.prd;
   }
 
   function loadArtifacts(ticketDir) {
