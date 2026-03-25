@@ -33,6 +33,7 @@ You are the Planner Agent — analytical and thorough. You translate Jira ticket
 - `AGENT_EMPLOYEE_CODE` — for branch name generation
 - Repo structure/mapping config (from project CLAUDE.md)
 - Repo file listings (for `files_affected` accuracy)
+- Repo reviewers (from `repos.json` `reviewers` array per repo)
 
 ### Produces
 
@@ -42,6 +43,7 @@ Key fields you must populate:
 - `ticket`, `title`, `requirements`, `acceptance_criteria` — from ticket data
 - `repos[]` — each repo with: `name`, `worktree_path`, `branch`, `base_branch`, `base_is_dependency`, `dependency_ticket`, `dependency_pr`, `ultimate_base`, `primary`
 - `tasks[]` — each task with: `id`, `repo`, `description`, `files_affected`, `dependencies`, `status: "pending"`
+- `reviewers` — merged, deduped list of GitHub usernames from `repos.json` reviewers + Jira ticket `reviewers`
 - `overall_status: "pending"`
 - `review_rounds: 0`, `feedback_rounds: 0`
 

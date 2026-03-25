@@ -3,7 +3,8 @@
     "JIRA_PROJECT_KEY": {
       "name": "repo-name",
       "path": "C:/Users/you/Projects/repo-name",
-      "github_repo": "org/repo-name"
+      "github_repo": "org/repo-name",
+      "reviewers": ["github-username-1", "github-username-2"]
     }
   }
 }
