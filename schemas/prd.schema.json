@@ -55,6 +55,11 @@
       "minimum": 0,
       "description": "Number of PR feedback rounds completed"
     },
+    "reviewers": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "GitHub usernames to assign as PR reviewers (merged from repos.json and Jira ticket)"
+    },
     "agent_versions": {
       "type": "object",
       "description": "Agent prompt versions recorded at run start",
