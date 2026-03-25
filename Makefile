@@ -6,7 +6,7 @@ ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 ISSUE := $(word 1,$(ARGS))
 EXTRA := $(wordlist 2,$(words $(ARGS)),$(ARGS))
 
-.PHONY: help start dry-run resume pause stop ready-pr address-feedback
+.PHONY: help start dry-run resume pause stop ready-pr address-feedback dashboard dashboard-test
 .DEFAULT_GOAL := help
 
 help:
@@ -22,6 +22,8 @@ help:
 	@echo "  stop              Immediate stop, preserve state"
 	@echo "  ready-pr          Mark PR as ready for review (not draft)"
 	@echo "  address-feedback  Address PR feedback including bot comments"
+	@echo "  dashboard         Start the real-time dashboard server"
+	@echo "  dashboard-test    Run dashboard tests"
 	@echo "  help              Show this message"
 	@echo ""
 	@echo "Examples:"
@@ -48,6 +50,12 @@ stop: _require-issue
 
 ready-pr: _require-issue
 	claude --permission-mode bypassPermissions "/start $(ISSUE) --ready-pr $(EXTRA)"
+
+dashboard:
+	node dashboard/server.js
+
+dashboard-test:
+	node --test dashboard/test/stages.test.js dashboard/test/state.test.js dashboard/test/watcher.test.js dashboard/test/integration.test.js
 
 address-feedback: _require-issue
 	claude --permission-mode bypassPermissions "/address-feedback $(ISSUE) --include-bots $(EXTRA)"
