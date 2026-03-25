@@ -72,7 +72,7 @@ for f in $feature_files; do
   [[ "$ext" != "ts" && "$ext" != "tsx" && "$ext" != "js" && "$ext" != "jsx" ]] && continue
 
   # Find new export statements in our changes
-  new_exports=$(git diff "$merge_base" HEAD -- "$f" 2>/dev/null | grep "^+" | grep -oP "export\s+(const|function|class|type|interface|enum)\s+\K\w+" || true)
+  new_exports=$(git diff "$merge_base" HEAD -- "$f" 2>/dev/null | grep "^+" | grep -E "export[[:space:]]+(const|function|class|type|interface|enum)[[:space:]]+" | sed -E 's/.*export[[:space:]]+(const|function|class|type|interface|enum)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\2/' || true)
   for exp in $new_exports; do
     # Check if anything else references this export
     consumers=$(grep -rl "$exp" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v node_modules | grep -v ".git" | grep -v "$f" || true)

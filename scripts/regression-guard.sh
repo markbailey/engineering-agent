@@ -45,7 +45,7 @@ if [[ -n "$merge_base" ]]; then
     # Check if any of our feature files import from this changed file
     # Strip extension for import matching
     base_no_ext="${f%.*}"
-    importers=$(grep -rl "$base_no_ext\|$(basename "$base_no_ext")" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v node_modules | grep -v ".git" || true)
+    importers=$(grep -rlE "$base_no_ext|$(basename "$base_no_ext")" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v node_modules | grep -v ".git" || true)
 
     if [[ -n "$importers" ]]; then
       # Check if the file was deleted in base
@@ -71,7 +71,7 @@ if [[ $? -ne 0 ]]; then
   # Extract failure summary
   while IFS= read -r line; do
     [[ -n "$line" ]] && issues+=("test_suite: $line")
-  done < <(echo "$test_output" | grep -i "fail\|error\|FAIL" | head -5)
+  done < <(echo "$test_output" | grep -iE "fail|error|FAIL" | head -5)
 fi
 
 # --- Build JSON output ---
