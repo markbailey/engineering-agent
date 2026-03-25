@@ -2,7 +2,7 @@
 
 On every run start (before any agent invocation):
 
-1. Parse user input via `scripts/parse-args.sh` — extract ticket_id, mode, flags, and target repo info (project_key, repo_name, repo_path, github_repo from `repos.json`).
+1. Parse user input via `scripts/parse-args.sh` — extract ticket_id, mode, flags, target repo info (project_key, repo_name, repo_path, github_repo from `repos.json`), and input_source (`jira` or `local`).
 2. Initialise run log: `scripts/run-log.sh {ticket_id} INFO startup "Run started"` — creates `runs/{ticket_id}/run.log`.
 3. Read `REPAIR_KNOWLEDGE.json` — load known tool/environment failure alternatives.
 4. Read `AGENT_LEARNING.json` — load standing instructions for each agent.

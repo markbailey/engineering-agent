@@ -1,7 +1,7 @@
 # Workflow Definition
 
 ```
-Orchestrator receives: TICKET-ID (provided externally)
+Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
 
   → Startup: read REPAIR_KNOWLEDGE.json + AGENT_LEARNING.json
   → Startup: scan for orphaned worktrees (report to human, non-blocking)
@@ -9,14 +9,21 @@ Orchestrator receives: TICKET-ID (provided externally)
   → TICKET INTAKE
       → Run `scripts/check-team-conflict.sh {ticket_id} --target-repo={repo_path} --github-repo={github_repo}` — detect existing human work
           → Conflict found: ESCALATE (do not start competing branch)
-      → Jira Agent: fetch ticket, validate (see Ticket Intake Rules)
-      → If invalid/blocked/unsupported: STOP with reason
-      → If active worktree exists: resume existing run
-      → Jira Agent: full parse — requirements, acceptance criteria, linked issues
-      → Dependency check (blocked-by links + PR status)
-          → Blocked: comment, transition ticket to Blocked, STOP
-          → Dependency PR ready: record dependency branch
-          → Clear: proceed
+      → If input_source == "local":
+          → Construct ticket_data from local JSON (already validated by parse-args.sh)
+          → Skip Jira Agent (validate, full_parse, dependency_check)
+          → Log linked_issues as warning if present (not resolved)
+          → If active worktree exists: resume existing run
+          → Proceed to PLANNING
+      → If input_source == "jira":
+          → Jira Agent: fetch ticket, validate (see Ticket Intake Rules)
+          → If invalid/blocked/unsupported: STOP with reason
+          → If active worktree exists: resume existing run
+          → Jira Agent: full parse — requirements, acceptance criteria, linked issues
+          → Dependency check (blocked-by links + PR status)
+              → Blocked: comment, transition ticket to Blocked, STOP
+              → Dependency PR ready: record dependency branch
+              → Clear: proceed
 
   → PLANNING
       → Planner Agent: generate PRD.json (worktree paths, branches, tasks, dependencies)
@@ -80,7 +87,9 @@ Orchestrator receives: TICKET-ID (provided externally)
 
   → PR CREATION
       → Run `scripts/check-branch-before-push.sh {worktree}` — final push safety check
-      → PR Agent: open PR as draft, write description, link Jira, update Jira to "In Review"
+      → PR Agent: open PR as draft, write description
+          → If input_source == "jira": link Jira, update Jira to "In Review"
+          → If input_source == "local": omit Jira link, skip Jira transition
       → Exception: if --ready-pr flag was passed, mark as ready for review
 
   → PR MONITORING
@@ -105,7 +114,7 @@ Orchestrator receives: TICKET-ID (provided externally)
           → Approved + CI green: notify human to merge
 
   → POST-MERGE (on confirmed merge)
-      → Jira Agent: transition ticket to Done
+      → If input_source == "jira": Jira Agent: transition ticket to Done
       → Cleanup worktrees (all repos)
       → Archive artefacts to /runs/TICKET-ID/
       → `scripts/run-summary.sh {ticket_id} {status} {tasks_total} {tasks_completed} [pr_url]`
