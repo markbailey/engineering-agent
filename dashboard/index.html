@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-deep: #0a0c10;
+  --bg-panel: #0f1218;
+  --bg-surface: #151a23;
+  --bg-hover: #1a2030;
+  --border: #1e2736;
+  --border-bright: #2a3548;
+  --text-primary: #c8d1dc;
+  --text-secondary: #6b7a8d;
+  --text-muted: #3d4b5c;
+  --accent-green: #00e59b;
+  --accent-green-dim: #00e59b33;
+  --accent-amber: #ffb224;
+  --accent-amber-dim: #ffb22433;
+  --accent-red: #ff4466;
+  --accent-red-dim: #ff446633;
+  --accent-blue: #3b82f6;
+  --accent-blue-dim: #3b82f633;
+  --accent-cyan: #22d3ee;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* === SCANLINE OVERLAY === */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+/* === LAYOUT === */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text-primary);
+}
+
+.logo span {
+  color: var(--accent-green);
+}
+
+.connection-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.connection-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green-dim);
+}
+
+.connection-dot.disconnected {
+  background: var(--accent-red);
+  box-shadow: 0 0 8px var(--accent-red-dim);
+  animation: pulse-red 1.5s ease-in-out infinite;
+}
+
+/* === TAB BAR === */
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 20px;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--border);
+  min-height: 38px;
+  overflow-x: auto;
+}
+
+.tab-bar::-webkit-scrollbar { height: 2px; }
+.tab-bar::-webkit-scrollbar-track { background: transparent; }
+.tab-bar::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 1px; }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-family: var(--font-mono);
+}
+
+.tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.tab.active {
+  color: var(--accent-green);
+  border-bottom-color: var(--accent-green);
+}
+
+.tab-status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tab-status.in_progress { background: var(--accent-amber); box-shadow: 0 0 6px var(--accent-amber-dim); animation: pulse-amber 2s ease-in-out infinite; }
+.tab-status.complete, .tab-status.done { background: var(--accent-green); }
+.tab-status.error, .tab-status.blocked_secrets { background: var(--accent-red); animation: pulse-red 1.5s ease-in-out infinite; }
+.tab-status.pending { background: var(--text-muted); }
+
+/* === MAIN CONTENT === */
+.main {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  overflow: hidden;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  opacity: 0.3;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* === SIDEBAR (WORKFLOW) === */
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* === WORKFLOW STEPS === */
+.workflow-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background 0.1s;
+}
+
+.step:hover { background: var(--bg-hover); }
+
+.step-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.step.pending .step-icon {
+  border: 1.5px solid var(--border-bright);
+  color: var(--text-muted);
+}
+
+.step.in_progress .step-icon {
+  background: var(--accent-amber-dim);
+  border: 1.5px solid var(--accent-amber);
+  color: var(--accent-amber);
+  animation: pulse-amber 2s ease-in-out infinite;
+}
+
+.step.complete .step-icon {
+  background: var(--accent-green-dim);
+  border: 1.5px solid var(--accent-green);
+  color: var(--accent-green);
+}
+
+.step.error .step-icon {
+  background: var(--accent-red-dim);
+  border: 1.5px solid var(--accent-red);
+  color: var(--accent-red);
+  animation: pulse-red 1.5s ease-in-out infinite;
+}
+
+.step.complete { color: var(--text-primary); }
+.step.in_progress { color: var(--accent-amber); }
+.step.error { color: var(--accent-red); }
+
+/* === STATUS FOOTER === */
+.status-bar {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.status-value {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-value.in_progress { color: var(--accent-amber); }
+.status-value.complete, .status-value.done { color: var(--accent-green); }
+.status-value.error, .status-value.blocked_secrets { color: var(--accent-red); }
+
+.status-counters {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* === DETAILS PANEL === */
+.details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-title {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* === ACTIVE AGENT === */
+.agent-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 12px var(--accent-blue-dim);
+  animation: agent-pulse 1.8s ease-in-out infinite;
+}
+
+.agent-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+}
+
+.agent-idle {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* === TASK QUEUE === */
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  font-size: 12px;
+}
+
+.task-item:hover { background: var(--bg-hover); }
+
+.task-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  min-width: 80px;
+  justify-content: center;
+}
+
+.task-badge.verified { background: var(--accent-green-dim); color: var(--accent-green); }
+.task-badge.in_progress { background: var(--accent-amber-dim); color: var(--accent-amber); }
+.task-badge.pending { background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border); }
+
+.task-desc {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-repo {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* === LOG STREAM === */
+.log-stream-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.log-stream-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+}
+
+.log-autoscroll {
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+}
+
+.log-autoscroll:hover { color: var(--text-secondary); }
+.log-autoscroll.paused { color: var(--accent-amber); }
+
+.log-stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 16px;
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+.log-stream::-webkit-scrollbar { width: 6px; }
+.log-stream::-webkit-scrollbar-track { background: transparent; }
+.log-stream::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+
+.log-entry {
+  display: flex;
+  gap: 8px;
+  padding: 1px 0;
+  animation: log-fade-in 0.2s ease;
+}
+
+.log-ts {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 10px;
+  min-width: 60px;
+}
+
+.log-level {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 10px;
+  min-width: 42px;
+  text-align: right;
+}
+
+.log-level.INFO { color: var(--accent-blue); }
+.log-level.WARN { color: var(--accent-amber); }
+.log-level.ERROR { color: var(--accent-red); }
+.log-level.EVENT { color: var(--accent-green); }
+
+.log-cat {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 80px;
+  font-size: 11px;
+}
+
+.log-msg {
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.log-entry:has(.log-level.ERROR) .log-msg { color: var(--accent-red); }
+.log-entry:has(.log-level.WARN) .log-msg { color: var(--accent-amber); }
+
+/* === ERROR BANNER === */
+.error-banner {
+  display: none;
+  padding: 10px 20px;
+  background: var(--accent-red-dim);
+  border-bottom: 1px solid var(--accent-red);
+  color: var(--accent-red);
+  font-size: 12px;
+  font-weight: 500;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-banner.visible { display: flex; }
+
+.error-banner-icon { font-size: 14px; }
+
+/* === ANIMATIONS === */
+@keyframes pulse-amber {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes agent-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.6; }
+}
+
+@keyframes log-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* === NO TASKS PLACEHOLDER === */
+.no-data {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: italic;
+  padding: 4px 0;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo"><span>&gt;</span> agent<span>.</span>dashboard</div>
+    </div>
+    <div class="connection-badge">
+      <div class="connection-dot" id="connectionDot"></div>
+      <span id="connectionLabel">connecting</span>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tab-bar" id="tabBar">
+    <!-- tabs rendered dynamically -->
+  </div>
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" id="errorBanner">
+    <span class="error-banner-icon">!</span>
+    <span id="errorBannerText"></span>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" id="mainContent">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-state-icon">//</div>
+      <div>no active runs</div>
+      <div style="font-size: 11px; color: var(--text-muted)">waiting for runs/ data</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // --- State ---
+  const state = {
+    runs: new Map(),
+    activeRunId: null,
+  };
+
+  let autoScroll = true;
+
+  // --- SSE ---
+  let evtSource = null;
+
+  function connect() {
+    if (evtSource) { try { evtSource.close(); } catch {} }
+
+    evtSource = new EventSource('/events');
+
+    evtSource.onopen = () => {
+      setConnected(true);
+    };
+
+    evtSource.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        handleEvent(event);
+      } catch {}
+    };
+
+    evtSource.onerror = () => {
+      setConnected(false);
+    };
+  }
+
+  function setConnected(yes) {
+    const dot = document.getElementById('connectionDot');
+    const label = document.getElementById('connectionLabel');
+    if (yes) {
+      dot.classList.remove('disconnected');
+      label.textContent = 'connected';
+    } else {
+      dot.classList.add('disconnected');
+      label.textContent = 'reconnecting';
+    }
+  }
+
+  // --- Initial load ---
+  async function loadInitial() {
+    try {
+      const res = await fetch('/api/runs');
+      const runs = await res.json();
+      for (const run of runs) {
+        state.runs.set(run.ticketId, run);
+      }
+      if (runs.length > 0 && !state.activeRunId) {
+        state.activeRunId = runs[0].ticketId;
+      }
+      render();
+    } catch {}
+  }
+
+  // --- Event handling ---
+  function handleEvent(event) {
+    if (event.type === 'snapshot' && event.data) {
+      state.runs.set(event.ticketId, event.data);
+      if (!state.activeRunId) {
+        state.activeRunId = event.ticketId;
+      }
+    } else if (event.type === 'remove') {
+      state.runs.delete(event.ticketId);
+      if (state.activeRunId === event.ticketId) {
+        state.activeRunId = state.runs.keys().next().value || null;
+      }
+    }
+    render();
+  }
+
+  // --- Rendering ---
+  function render() {
+    renderTabs();
+    renderMain();
+  }
+
+  function renderTabs() {
+    const bar = document.getElementById('tabBar');
+    bar.innerHTML = '';
+
+    for (const [id, run] of state.runs) {
+      const tab = document.createElement('button');
+      tab.className = 'tab' + (id === state.activeRunId ? ' active' : '');
+      tab.onclick = () => { state.activeRunId = id; render(); };
+
+      const dot = document.createElement('span');
+      dot.className = 'tab-status ' + (run.overallStatus || 'pending');
+      tab.appendChild(dot);
+
+      const label = document.createElement('span');
+      label.textContent = id;
+      tab.appendChild(label);
+
+      bar.appendChild(tab);
+    }
+  }
+
+  function renderMain() {
+    const main = document.getElementById('mainContent');
+    const empty = document.getElementById('emptyState');
+    const banner = document.getElementById('errorBanner');
+
+    if (state.runs.size === 0) {
+      main.innerHTML = '';
+      main.appendChild(empty);
+      banner.classList.remove('visible');
+      return;
+    }
+
+    const run = state.runs.get(state.activeRunId);
+    if (!run) return;
+
+    // Error banner
+    if (run.errors.length > 0) {
+      const lastErr = run.errors[run.errors.length - 1];
+      document.getElementById('errorBannerText').textContent = lastErr.msg;
+      banner.classList.add('visible');
+    } else {
+      banner.classList.remove('visible');
+    }
+
+    main.innerHTML = '';
+
+    // Sidebar
+    const sidebar = document.createElement('div');
+    sidebar.className = 'sidebar';
+
+    // Workflow section
+    const wfSection = document.createElement('div');
+    wfSection.className = 'sidebar-section';
+    const wfTitle = document.createElement('div');
+    wfTitle.className = 'sidebar-title';
+    wfTitle.textContent = 'Workflow';
+    wfSection.appendChild(wfTitle);
+
+    const steps = document.createElement('div');
+    steps.className = 'workflow-steps';
+    for (const stage of run.stages) {
+      const step = document.createElement('div');
+      step.className = 'step ' + stage.status;
+
+      const icon = document.createElement('div');
+      icon.className = 'step-icon';
+      if (stage.status === 'complete') icon.textContent = '\u2713';
+      else if (stage.status === 'in_progress') icon.textContent = '\u25B8';
+      else if (stage.status === 'error') icon.textContent = '!';
+      else icon.textContent = '\u00B7';
+
+      const label = document.createElement('span');
+      label.textContent = stage.label;
+
+      step.appendChild(icon);
+      step.appendChild(label);
+      steps.appendChild(step);
+    }
+    wfSection.appendChild(steps);
+    sidebar.appendChild(wfSection);
+
+    // Status footer
+    const statusBar = document.createElement('div');
+    statusBar.className = 'status-bar';
+
+    const statusLabel = document.createElement('div');
+    statusLabel.className = 'status-label';
+    statusLabel.textContent = 'Status';
+    statusBar.appendChild(statusLabel);
+
+    const statusVal = document.createElement('div');
+    statusVal.className = 'status-value ' + (run.overallStatus || '');
+    statusVal.textContent = run.overallStatus || 'unknown';
+    statusBar.appendChild(statusVal);
+
+    const counters = document.createElement('div');
+    counters.className = 'status-counters';
+    counters.innerHTML = '<span>Reviews: ' + run.reviewRounds + '</span><span>Feedback: ' + run.feedbackRounds + '</span>';
+    statusBar.appendChild(counters);
+
+    sidebar.appendChild(statusBar);
+    main.appendChild(sidebar);
+
+    // Details panel
+    const details = document.createElement('div');
+    details.className = 'details';
+
+    // Active agent
+    const agentSection = document.createElement('div');
+    agentSection.className = 'detail-section';
+    const agentTitle = document.createElement('div');
+    agentTitle.className = 'detail-title';
+    agentTitle.textContent = 'Active Agent';
+    agentSection.appendChild(agentTitle);
+
+    if (run.activeAgent) {
+      const agentDisplay = document.createElement('div');
+      agentDisplay.className = 'agent-display';
+      const pulse = document.createElement('div');
+      pulse.className = 'agent-pulse';
+      const name = document.createElement('span');
+      name.className = 'agent-name';
+      name.textContent = run.activeAgent;
+      agentDisplay.appendChild(pulse);
+      agentDisplay.appendChild(name);
+      agentSection.appendChild(agentDisplay);
+    } else {
+      const idle = document.createElement('div');
+      idle.className = 'agent-idle';
+      idle.textContent = 'idle';
+      agentSection.appendChild(idle);
+    }
+    details.appendChild(agentSection);
+
+    // Task queue
+    const taskSection = document.createElement('div');
+    taskSection.className = 'detail-section';
+    const taskTitle = document.createElement('div');
+    taskTitle.className = 'detail-title';
+    taskTitle.textContent = 'Task Queue';
+    taskSection.appendChild(taskTitle);
+
+    if (run.tasks.length > 0) {
+      const taskList = document.createElement('div');
+      taskList.className = 'task-list';
+      for (const task of run.tasks) {
+        const item = document.createElement('div');
+        item.className = 'task-item';
+
+        const badge = document.createElement('span');
+        badge.className = 'task-badge ' + task.status;
+        badge.textContent = task.status;
+
+        const desc = document.createElement('span');
+        desc.className = 'task-desc';
+        desc.textContent = task.description;
+
+        item.appendChild(badge);
+        item.appendChild(desc);
+
+        if (task.repo) {
+          const repo = document.createElement('span');
+          repo.className = 'task-repo';
+          repo.textContent = task.repo;
+          item.appendChild(repo);
+        }
+
+        taskList.appendChild(item);
+      }
+      taskSection.appendChild(taskList);
+    } else {
+      const noData = document.createElement('div');
+      noData.className = 'no-data';
+      noData.textContent = 'no tasks loaded';
+      taskSection.appendChild(noData);
+    }
+    details.appendChild(taskSection);
+
+    // Log stream
+    const logWrapper = document.createElement('div');
+    logWrapper.className = 'log-stream-wrapper';
+
+    const logHeader = document.createElement('div');
+    logHeader.className = 'log-stream-header';
+    const logTitle = document.createElement('div');
+    logTitle.className = 'detail-title';
+    logTitle.style.marginBottom = '0';
+    logTitle.textContent = 'Log Stream';
+    logHeader.appendChild(logTitle);
+
+    const scrollBtn = document.createElement('button');
+    scrollBtn.className = 'log-autoscroll' + (autoScroll ? '' : ' paused');
+    scrollBtn.textContent = autoScroll ? '\u25BC auto-scroll' : '\u25A0 paused';
+    scrollBtn.onclick = () => {
+      autoScroll = !autoScroll;
+      render();
+    };
+    logHeader.appendChild(scrollBtn);
+    logWrapper.appendChild(logHeader);
+
+    const logStream = document.createElement('div');
+    logStream.className = 'log-stream';
+    logStream.id = 'logStream';
+
+    for (const entry of run.recentLogs) {
+      logStream.appendChild(createLogEntry(entry));
+    }
+    logWrapper.appendChild(logStream);
+
+    // Pause auto-scroll on user scroll up
+    logStream.addEventListener('scroll', () => {
+      const atBottom = logStream.scrollHeight - logStream.scrollTop - logStream.clientHeight < 30;
+      if (!atBottom && autoScroll) {
+        autoScroll = false;
+        scrollBtn.className = 'log-autoscroll paused';
+        scrollBtn.textContent = '\u25A0 paused';
+      }
+    });
+
+    details.appendChild(logWrapper);
+    main.appendChild(details);
+
+    // Auto-scroll
+    if (autoScroll) {
+      requestAnimationFrame(() => {
+        logStream.scrollTop = logStream.scrollHeight;
+      });
+    }
+  }
+
+  function createLogEntry(entry) {
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+
+    const ts = document.createElement('span');
+    ts.className = 'log-ts';
+    ts.textContent = formatTime(entry.ts);
+
+    const level = document.createElement('span');
+    level.className = 'log-level ' + entry.level;
+    level.textContent = entry.level;
+
+    const cat = document.createElement('span');
+    cat.className = 'log-cat';
+    cat.textContent = '[' + entry.cat + ']';
+
+    const msg = document.createElement('span');
+    msg.className = 'log-msg';
+    msg.textContent = entry.msg;
+
+    el.appendChild(ts);
+    el.appendChild(level);
+    el.appendChild(cat);
+    el.appendChild(msg);
+    return el;
+  }
+
+  function formatTime(ts) {
+    if (!ts) return '';
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return ts.substring(0, 8);
+      return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    } catch {
+      return ts;
+    }
+  }
+
+  // --- Init ---
+  loadInitial().then(() => connect());
+})();
+</script>
+</body>
+</html>
