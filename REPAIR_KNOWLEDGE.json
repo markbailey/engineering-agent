@@ -1,5 +1,30 @@
 {
-  "version": 1,
-  "last_updated": "2026-03-21T00:00:00Z",
-  "entries": []
+  "version": 3,
+  "last_updated": "2026-03-24T18:28:26Z",
+  "entries": [
+    {
+      "id": "repair-1",
+      "agent": "orphan-check",
+      "operation": "grep",
+      "failed_approach": "grep -P",
+      "failure_reason": "grep -P not available on macOS \u2014 use grep -E or perl instead",
+      "error_pattern": "grep: invalid option -- P",
+      "successful_alternative": "Replace grep -P with grep -E throughout orphan-check.sh",
+      "confidence": "low",
+      "occurrences": 1,
+      "last_seen": "2026-03-24T18:28:23Z"
+    },
+    {
+      "id": "repair-2",
+      "agent": "orphan-check",
+      "operation": "diff-scope",
+      "failed_approach": "full merge diff scan",
+      "failure_reason": "orphan-check scans entire merge diff, flags unrelated base-branch renames/integrations as false positives",
+      "error_pattern": "renamed_references.*escalated|disconnected_integrations.*restructured by base",
+      "successful_alternative": "Filter orphan-check to only feature-branch files from PRD.json files_affected, ignore base-only changes",
+      "confidence": "low",
+      "occurrences": 1,
+      "last_seen": "2026-03-24T18:28:26Z"
+    }
+  ]
 }
