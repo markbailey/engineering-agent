@@ -26,6 +26,20 @@ if [[ -z "$ticket_id" || -z "$event_type" || -z "$message" ]]; then
   exit 1
 fi
 
+# Guard: detect swapped arguments (ticket_id must look like PROJ-123)
+if [[ ! "$ticket_id" =~ ^[A-Z]+-[0-9]+$ ]]; then
+  # Check if args were swapped (event_type in position 1, ticket_id in position 2)
+  if [[ "$event_type" =~ ^[A-Z]+-[0-9]+$ ]]; then
+    echo "WARN: notify.sh args appear swapped — auto-correcting ($ticket_id ↔ $event_type)" >&2
+    tmp="$ticket_id"
+    ticket_id="$event_type"
+    event_type="$tmp"
+  else
+    echo "ERROR: notify.sh ticket_id '$ticket_id' doesn't match PROJ-123 format" >&2
+    exit 1
+  fi
+fi
+
 # Event type → severity + icon
 icon="*"
 severity="INFO"
