@@ -54,6 +54,14 @@ describe('pid.sh', () => {
       assert.ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(data.startedAt),
         'startedAt should be ISO 8601');
     });
+
+    it('writes explicit PID when passed as third argument', () => {
+      const targetPid = process.pid;
+      runPid(`write ${ticketId} ${targetPid}`);
+      const pidFile = path.join(runsDir, ticketId, 'pid.json');
+      const data = JSON.parse(fs.readFileSync(pidFile, 'utf8'));
+      assert.equal(data.pid, targetPid, 'pid should match the explicit argument');
+    });
   });
 
   describe('remove', () => {

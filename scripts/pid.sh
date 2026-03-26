@@ -26,7 +26,8 @@ case "$subcommand" in
   write)
     mkdir -p "$run_dir"
     ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%SZ")
-    echo "{\"pid\":$$,\"startedAt\":\"$ts\"}" > "$pid_file"
+    target_pid="${3:-$$}"
+    echo "{\"pid\":$target_pid,\"startedAt\":\"$ts\"}" > "$pid_file"
     ;;
 
   remove)
