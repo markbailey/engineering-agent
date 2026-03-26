@@ -23,6 +23,7 @@ resume=false
 ready_pr=false
 pause=false
 stop=false
+auto_merge=false
 
 for arg in $input; do
   case "$arg" in
@@ -31,6 +32,7 @@ for arg in $input; do
     --ready-pr) ready_pr=true ;;
     --pause)    pause=true ;;
     --stop)     stop=true ;;
+    --auto-merge) auto_merge=true ;;
     -*)
       echo "{\"error\":\"Unknown flag: $arg\"}" >&2
       exit 1
@@ -163,4 +165,4 @@ const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 const extra = JSON.parse(process.argv[1]);
 Object.assign(d, extra);
 console.log(JSON.stringify(d));
-" "{\"ticket_id\":\"$ticket_id\",\"mode\":\"$mode\",\"ready_pr\":$ready_pr,\"pause\":$pause,\"stop\":$stop,\"input_source\":\"$input_source\",\"input_file\":$( [[ "$input_file" == "null" ]] && echo 'null' || echo "\"$input_file\"" )}"
+" "{\"ticket_id\":\"$ticket_id\",\"mode\":\"$mode\",\"ready_pr\":$ready_pr,\"pause\":$pause,\"stop\":$stop,\"input_source\":\"$input_source\",\"input_file\":$( [[ "$input_file" == "null" ]] && echo 'null' || echo "\"$input_file\"" ),\"auto_merge\":$auto_merge}"

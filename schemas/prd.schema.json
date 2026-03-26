@@ -42,7 +42,7 @@
     },
     "overall_status": {
       "type": "string",
-      "enum": ["pending", "in_progress", "review", "pr_open", "pr_approved", "done", "blocked_secrets", "escalated"],
+      "enum": ["pending", "in_progress", "review", "pr_open", "pr_monitoring", "pr_approved", "done", "blocked_secrets", "escalated"],
       "description": "Current workflow status"
     },
     "review_rounds": {
