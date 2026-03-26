@@ -6,6 +6,8 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [[ $# -lt 2 ]]; then
   echo "Usage: regression-guard.sh <worktree_path> <base_branch>" >&2
   exit 2
@@ -19,8 +21,12 @@ cd "$wt_path"
 
 # --- Pass 1: Compilation ---
 compilation="pass"
-tsc_output=$(npx tsc --noEmit 2>&1)
-if [[ $? -ne 0 ]]; then
+tsc_output=$("$SCRIPT_DIR/with-timeout.sh" "${AGENT_TSC_TIMEOUT:-120}" npx tsc --noEmit 2>&1)
+tsc_exit=$?
+if [[ $tsc_exit -eq 124 ]]; then
+  compilation="fail"
+  issues+=("compilation: tsc --noEmit timed out after ${AGENT_TSC_TIMEOUT:-120}s")
+elif [[ $tsc_exit -ne 0 ]]; then
   compilation="fail"
   # Extract first 5 errors
   while IFS= read -r line; do
@@ -65,8 +71,12 @@ npx prettier --write . >/dev/null 2>&1 || true
 npx eslint --fix . >/dev/null 2>&1 || true
 
 # Run tests
-test_output=$(npm test 2>&1)
-if [[ $? -ne 0 ]]; then
+test_output=$("$SCRIPT_DIR/with-timeout.sh" "${AGENT_TEST_TIMEOUT:-300}" npm test 2>&1)
+test_exit=$?
+if [[ $test_exit -eq 124 ]]; then
+  test_suite="fail"
+  issues+=("test_suite: npm test timed out after ${AGENT_TEST_TIMEOUT:-300}s")
+elif [[ $test_exit -ne 0 ]]; then
   test_suite="fail"
   # Extract failure summary
   while IFS= read -r line; do
