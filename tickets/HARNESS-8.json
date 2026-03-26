@@ -1,0 +1,19 @@
+{
+  "ticket_id": "HARNESS-8",
+  "title": "Dry-Run Depth & Agent Self-Testing",
+  "type": "Story",
+  "requirements": "Full pipeline simulation without side effects. Golden-file tests for agent prompts.\n\n1. Deep dry-run mode:\n   - Update CLAUDE.md dry-run behavior to run full pipeline through secret scan\n   - STOP before: PR creation, Jira status transitions, reviewer assignment, any gh command that creates/modifies PRs or issues\n   - Write all artifacts to runs/{ticket_id}/ with dry_run: true flag in PRD.json\n   - Update parse-args.sh: --dry-run sets dry_run: true in output\n   - Update PR Agent invocation in CLAUDE.md: check dry_run flag, skip if true\n\n2. Create scripts/dry-run-report.sh:\n   - Args: <ticket_id>\n   - Reads all artifacts from runs/{ticket_id}/\n   - Generates human-readable summary: PRD.json task list + AC coverage, code changes diff summary per task, QA results, Critic verdict + issues, secret scan result, conflict resolution result, estimated PR size\n   - Output: formatted text to stdout\n\n3. Agent test fixtures directory:\n   - Create tests/ directory structure: tests/fixtures/tickets/, tests/fixtures/repos/, tests/fixtures/expected/, tests/run-agent-test.sh\n   - Create 3 fixture tickets: simple-feature.json (single-file Story), multi-task-bug.json (multi-file Bug with deps), cross-repo-story.json (multi-repo Story)\n\n4. Agent test runner:\n   - Create tests/run-agent-test.sh: Args: <fixture_name> or 'all'\n   - For each fixture: run full pipeline in dry-run mode, compare PRD.json structure against expected, compare REVIEW.json structure against expected, validate all artifacts against schemas\n   - Exit 0 if all pass, exit 1 if any fail\n\n5. Script unit tests:\n   - Create tests/test-scripts.sh: test each utility script in isolation (generate-branch-name.sh, validate-branch-name.sh, validate-commit-msg.sh, resolve-repo.sh, resolve-toolchain.sh, preflight.sh)\n   - Uses assert helpers (compare expected vs actual JSON output)\n\n6. Makefile integration:\n   - Add targets: test (runs both), test-scripts, test-agents, test-agent (single fixture)\n\n7. Write tests for all new functionality",
+  "acceptance_criteria": [
+    "Dry-run mode runs full pipeline through secret scan without creating PRs or modifying Jira",
+    "dry_run: true flag is set in PRD.json during dry runs",
+    "scripts/dry-run-report.sh produces human-readable summary of all artifacts",
+    "tests/ directory structure exists with fixtures and test runners",
+    "3 fixture tickets exist: simple-feature, multi-task-bug, cross-repo-story",
+    "tests/run-agent-test.sh validates artifacts against schemas",
+    "tests/test-scripts.sh tests utility scripts in isolation",
+    "Makefile has test, test-scripts, test-agents, test-agent targets",
+    "All tests pass"
+  ],
+  "repo": "HARNESS",
+  "linked_issues": ["HARNESS-2", "HARNESS-3"]
+}

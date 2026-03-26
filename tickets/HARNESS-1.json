@@ -1,0 +1,21 @@
+{
+  "ticket_id": "HARNESS-1",
+  "title": "Pre-Flight Validation & Command Timeouts",
+  "type": "Story",
+  "requirements": "Eliminate silent failures from missing tools, bad config, and hanging operations.\n\n1. Create scripts/preflight.sh that validates:\n   - All required tools installed and on PATH: git, gh, node, npm, gitleaks\n   - gh auth status returns authenticated\n   - .env exists and contains all required vars (AGENT_EMPLOYEE_CODE, JIRA_URL, etc.)\n   - AGENT_EMPLOYEE_CODE is exactly 3 lowercase letters\n   - repos.json exists and is valid JSON\n   - For the target repo: directory exists, is a git repo, has remote origin\n   - Jira reachable (curl check returns 200/401/403)\n   - Output: JSON with overall (pass/fail) + checks[] (name, status, error)\n   - Exit 0 on pass, exit 1 on any failure\n\n2. Create scripts/with-timeout.sh wrapper:\n   - Args: <timeout_seconds> <command...>\n   - Uses timeout (GNU coreutils) on Linux, gtimeout on macOS, Start-Process fallback on Windows/MSYS\n   - On timeout: kill process tree, log to run.log, exit 124\n   - Env var override: AGENT_COMMAND_TIMEOUT (default 300s for tests, 120s for tsc, 60s for lint)\n   - Output: passthrough stdout/stderr from wrapped command\n\n3. Integrate timeouts into existing scripts:\n   - Update regression-guard.sh: wrap npx tsc --noEmit, npm test in with-timeout.sh\n   - Update worktree-init.sh: wrap npm install in with-timeout.sh\n   - Update orphan-check.sh: wrap grep operations in with-timeout.sh (30s default)\n   - Update run-secret-scan.sh: wrap gitleaks in with-timeout.sh\n   - Add timeout events to notify.sh event type map (icon: clock, severity: ERROR)\n   - Log all timeout events to run.log via run-log.sh\n\n4. Update CLAUDE.md startup sequence:\n   - Insert preflight as mandatory step 1 (before parse-args)\n   - On preflight failure: log error, notify human, abort run\n   - Update script reference table with preflight.sh and with-timeout.sh\n\n5. Write tests for all new functionality:\n   - Test preflight with all tools present (expect pass)\n   - Test preflight with missing tool (expect fail + clear error)\n   - Test preflight with missing .env var (expect fail + identifies which var)\n   - Test with-timeout.sh with fast command (expect passthrough)\n   - Test with-timeout.sh with sleep 10 and 2s timeout (expect kill + exit 124)\n   - Test regression-guard.sh timeout integration",
+  "acceptance_criteria": [
+    "scripts/preflight.sh exists and validates all required tools, auth, env vars, repos.json, and target repo",
+    "preflight.sh outputs JSON with overall pass/fail and individual check results",
+    "scripts/with-timeout.sh exists and works cross-platform (Linux timeout, macOS gtimeout, Windows/MSYS fallback)",
+    "with-timeout.sh kills process tree on timeout and exits 124",
+    "regression-guard.sh wraps tsc and test commands in with-timeout.sh",
+    "worktree-init.sh wraps npm install in with-timeout.sh",
+    "orphan-check.sh wraps grep operations in with-timeout.sh",
+    "run-secret-scan.sh wraps gitleaks in with-timeout.sh",
+    "notify.sh supports timeout event type",
+    "CLAUDE.md startup sequence includes preflight as step 1",
+    "Script reference table updated with new scripts",
+    "All tests pass"
+  ],
+  "repo": "HARNESS"
+}

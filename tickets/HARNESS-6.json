@@ -1,0 +1,20 @@
+{
+  "ticket_id": "HARNESS-6",
+  "title": "Flaky Test Registry & Improved Orphan Check",
+  "type": "Story",
+  "requirements": "Reduce false positives from flaky tests and grep-based orphan detection.\n\n1. Create schemas/flaky-tests.schema.json with fields:\n   - version (integer), last_updated (ISO 8601), entries array with: id (flaky-NNN), test_name (full test name or pattern), file (nullable), repo (project key), first_seen (ISO 8601), last_seen (ISO 8601), occurrences (integer >= 1), status (enum: active, resolved, permanent), notes (nullable)\n\n2. Create scripts/flaky-test.sh:\n   - Actions: check <test_name> <repo> (returns {flaky: true/false}), record <test_name> <repo> [--file path] (add/update entry in per-repo registry at runs/flaky-tests/{repo_name}.json), retry <ticket_id> <repo> (re-run failed tests matching flaky registry)\n   - Flaky tests get one automatic retry before being treated as real failures\n   - Non-flaky test failures are always real\n\n3. Integrate flaky tests into QA pipeline:\n   - Update agents/qa-agent.md: after test failure, check flaky registry before reporting fail\n   - Update CLAUDE.md QA pipeline: add flaky test check between test failure and retry/escalation\n   - Update agents/pr-monitor.md: CI failures checked against flaky registry\n\n4. Create scripts/orphan-check-ts.js as standalone TypeScript compiler API bundle:\n   - For each file changed by base branch: find all exports removed/renamed, find all references in feature branch files, report: file, export name, referencing files, reference count\n   - Falls back to orphan-check.sh (grep-based) for non-TypeScript repos\n   - Output: same JSON format as orphan-check.sh\n\n5. Scope orphan check to feature files only:\n   - Update orphan-check.sh: filter analysis to only files listed in PRD.json files_affected\n   - Accept PRD.json path as argument\n   - Update REPAIR_KNOWLEDGE.json: promote repair-2 to 'high' confidence\n\n6. Update conflict resolution pipeline:\n   - Update conflict-resolution.sh: try orphan-check-ts.js first, fall back to orphan-check.sh\n   - Selection based on tsconfig.json existence in worktree\n\n7. Write tests for all new functionality",
+  "acceptance_criteria": [
+    "schemas/flaky-tests.schema.json exists with all required fields",
+    "scripts/flaky-test.sh supports check, record, and retry actions",
+    "Flaky tests get one automatic retry before being treated as real failures",
+    "QA agent checks flaky registry before reporting test failures",
+    "PR monitor checks CI failures against flaky registry",
+    "scripts/orphan-check-ts.js exists as standalone TypeScript compiler API bundle",
+    "orphan-check.sh accepts PRD.json path and scopes analysis to feature files only",
+    "conflict-resolution.sh tries TS orphan check first, falls back to grep-based",
+    "REPAIR_KNOWLEDGE.json repair-2 promoted to high confidence",
+    "All tests pass"
+  ],
+  "repo": "HARNESS",
+  "linked_issues": ["HARNESS-2", "HARNESS-3"]
+}
