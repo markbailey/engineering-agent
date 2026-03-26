@@ -89,12 +89,16 @@ if $needs_deps || [[ ! -d "$wt_path/node_modules" ]]; then
   cd "$wt_path"
 
   if [[ -f "pnpm-lock.yaml" ]]; then
-    pnpm install || { echo "ERROR: pnpm install failed" >&2; exit 1; }
+    pnpm install --frozen-lockfile || { echo "ERROR: pnpm install failed" >&2; exit 1; }
   elif [[ -f "yarn.lock" ]]; then
-    yarn install || { echo "ERROR: yarn install failed" >&2; exit 1; }
+    yarn install --frozen-lockfile || { echo "ERROR: yarn install failed" >&2; exit 1; }
   else
-    npm install || { echo "ERROR: npm install failed" >&2; exit 1; }
+    npm ci || { echo "ERROR: npm ci failed" >&2; exit 1; }
   fi
+
+  # Reset formatting noise introduced by dependency install (postinstall scripts, etc.)
+  echo "[init] Resetting formatting drift..."
+  git checkout -- . 2>/dev/null || true
 fi
 
 # Verify node_modules

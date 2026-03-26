@@ -29,8 +29,9 @@ Mandatory before any agent work:
    - Strategy: `cp --preserve`, never overwrite existing (resume safety)
 
 2. **Install dependencies:**
-   - `npm install` inside worktree
+   - `npm ci` inside worktree (not `npm install` — avoids lockfile rewrites)
    - Never copy `node_modules` — always install fresh
+   - After install: `git checkout -- .` to reset formatting drift from postinstall scripts
    - If fails: auto-repair system triggers
 
 3. **Validate:**
