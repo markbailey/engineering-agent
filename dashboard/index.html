@@ -125,12 +125,20 @@ body::after {
   display: flex;
   align-items: stretch;
   gap: 2px;
-  padding: 8px 20px 0;
-  background: var(--bg-deep);
+  padding: 0 20px;
+  background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
-  min-height: 28px;
   overflow-x: auto;
   grid-area: tabs;
+}
+
+.tab-bar:empty {
+  display: none;
+}
+
+.tab-bar:not(:empty) {
+  padding-top: 8px;
+  min-height: 28px;
 }
 
 .tab-bar::-webkit-scrollbar { height: 2px; }
@@ -657,6 +665,7 @@ body::after {
   };
 
   let autoScroll = true;
+  const emptyStateTpl = document.getElementById('emptyState').cloneNode(true);
 
   // --- SSE ---
   let evtSource = null;
@@ -706,10 +715,9 @@ body::after {
         const firstActive = runs.find(r => r.isActive === 'active');
         if (firstActive) {
           state.activeRunId = firstActive.ticketId;
-          state.viewFilter = 'active';
         } else {
-          state.activeRunId = runs[0].ticketId;
           state.viewFilter = 'inactive';
+          state.activeRunId = runs[0].ticketId;
         }
       }
       render();
@@ -720,18 +728,13 @@ body::after {
   function handleEvent(event) {
     if (event.type === 'snapshot' && event.data) {
       state.runs.set(event.ticketId, event.data);
-      if (!state.activeRunId) {
+      if (!state.activeRunId && event.data.isActive === state.viewFilter) {
         state.activeRunId = event.ticketId;
-        state.viewFilter = event.data.isActive || 'active';
-      }
-      // View follows run
-      if (event.ticketId === state.activeRunId) {
-        state.viewFilter = event.data.isActive || 'active';
       }
     } else if (event.type === 'remove') {
       state.runs.delete(event.ticketId);
       if (state.activeRunId === event.ticketId) {
-        state.activeRunId = state.runs.keys().next().value || null;
+        state.activeRunId = null;
       }
     }
     render();
@@ -739,6 +742,19 @@ body::after {
 
   // --- Rendering ---
   function render() {
+    // Ensure activeRunId matches viewFilter — never override viewFilter
+    if (state.runs.size > 0) {
+      const currentRun = state.runs.get(state.activeRunId);
+      if (!currentRun || currentRun.isActive !== state.viewFilter) {
+        state.activeRunId = null;
+        for (const [id, run] of state.runs) {
+          if (run.isActive === state.viewFilter) {
+            state.activeRunId = id;
+            break;
+          }
+        }
+      }
+    }
     renderViewToggle();
     renderTabs();
     renderMain();
@@ -778,7 +794,6 @@ body::after {
   function renderTabs() {
     const bar = document.getElementById('tabBar');
     bar.innerHTML = '';
-    bar.style.display = state.runs.size === 0 ? 'none' : 'flex';
 
     // Filtered tabs
     for (const [id, run] of state.runs) {
@@ -805,15 +820,19 @@ body::after {
     const empty = document.getElementById('emptyState');
     const banner = document.getElementById('errorBanner');
 
-    if (state.runs.size === 0) {
+    const run = state.activeRunId ? state.runs.get(state.activeRunId) : null;
+    if (!run) {
       main.innerHTML = '';
-      main.appendChild(empty);
+      const placeholder = emptyStateTpl.cloneNode(true);
+      placeholder.removeAttribute('id');
+      if (state.runs.size > 0) {
+        placeholder.querySelector('div:nth-child(2)').textContent = 'no ' + state.viewFilter + ' runs';
+        placeholder.querySelector('div:nth-child(3)').textContent = '';
+      }
+      main.appendChild(placeholder);
       banner.classList.remove('visible');
       return;
     }
-
-    const run = state.runs.get(state.activeRunId);
-    if (!run) return;
 
     // Error banner
     if (run.errors.length > 0) {
