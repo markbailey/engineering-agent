@@ -617,6 +617,7 @@ body::after {
     <div class="header-left">
       <div class="logo"><span>&gt;</span> agent<span>.</span>dashboard</div>
     </div>
+    <div id="viewToggleContainer"></div>
     <div class="connection-badge">
       <div class="connection-dot" id="connectionDot"></div>
       <span id="connectionLabel">connecting</span>
@@ -738,16 +739,17 @@ body::after {
 
   // --- Rendering ---
   function render() {
+    renderViewToggle();
     renderTabs();
     renderMain();
   }
 
-  function renderTabs() {
-    const bar = document.getElementById('tabBar');
-    bar.innerHTML = '';
-    bar.style.display = state.runs.size === 0 ? 'none' : 'flex';
+  function renderViewToggle() {
+    const container = document.getElementById('viewToggleContainer');
+    container.innerHTML = '';
 
-    // Count active/inactive
+    if (state.runs.size === 0) return;
+
     let activeCount = 0;
     let inactiveCount = 0;
     for (const [, run] of state.runs) {
@@ -755,7 +757,6 @@ body::after {
       else inactiveCount++;
     }
 
-    // View toggle
     const toggle = document.createElement('div');
     toggle.className = 'view-toggle';
 
@@ -771,7 +772,13 @@ body::after {
 
     toggle.appendChild(activeBtn);
     toggle.appendChild(inactiveBtn);
-    bar.appendChild(toggle);
+    container.appendChild(toggle);
+  }
+
+  function renderTabs() {
+    const bar = document.getElementById('tabBar');
+    bar.innerHTML = '';
+    bar.style.display = state.runs.size === 0 ? 'none' : 'flex';
 
     // Filtered tabs
     for (const [id, run] of state.runs) {
