@@ -2,6 +2,7 @@
 
 On every run start (before any agent invocation):
 
+0. Run `scripts/preflight.sh {project_key}` — validate tools, auth, env, repos. On failure: log ERROR via run-log.sh, notify human via notify.sh, abort run (no partial work).
 1. Parse user input via `scripts/parse-args.sh` — extract ticket_id, mode, flags, target repo info (project_key, repo_name, repo_path, github_repo from `repos.json`), and input_source (`jira` or `local`).
 2. Initialise run log: `scripts/run-log.sh {ticket_id} INFO startup "Run started"` — creates `runs/{ticket_id}/run.log`.
 3. Read `REPAIR_KNOWLEDGE.json` — load known tool/environment failure alternatives.
