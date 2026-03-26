@@ -88,12 +88,21 @@ if $needs_deps || [[ ! -d "$wt_path/node_modules" ]]; then
   echo "[init] Installing dependencies..."
   cd "$wt_path"
 
+  install_rc=0
   if [[ -f "pnpm-lock.yaml" ]]; then
-    pnpm install --frozen-lockfile || { echo "ERROR: pnpm install failed" >&2; exit 1; }
+    "$SCRIPT_DIR/with-timeout.sh" "${AGENT_INSTALL_TIMEOUT:-300}" pnpm install --frozen-lockfile || install_rc=$?
   elif [[ -f "yarn.lock" ]]; then
-    yarn install --frozen-lockfile || { echo "ERROR: yarn install failed" >&2; exit 1; }
+    "$SCRIPT_DIR/with-timeout.sh" "${AGENT_INSTALL_TIMEOUT:-300}" yarn install --frozen-lockfile || install_rc=$?
   else
-    npm ci || { echo "ERROR: npm ci failed" >&2; exit 1; }
+    "$SCRIPT_DIR/with-timeout.sh" "${AGENT_INSTALL_TIMEOUT:-300}" npm ci || install_rc=$?
+  fi
+
+  if [[ "$install_rc" -eq 124 ]]; then
+    echo "ERROR: dependency install timed out after ${AGENT_INSTALL_TIMEOUT:-300}s" >&2
+    exit 1
+  elif [[ "$install_rc" -ne 0 ]]; then
+    echo "ERROR: dependency install failed (exit $install_rc)" >&2
+    exit 1
   fi
 
   # Reset formatting noise introduced by dependency install (postinstall scripts, etc.)
@@ -111,7 +120,7 @@ fi
 if [[ -f "$wt_path/tsconfig.json" ]]; then
   echo "[init] Running baseline tsc --noEmit..."
   cd "$wt_path"
-  if ! npx tsc --noEmit 2>&1; then
+  if ! "$SCRIPT_DIR/with-timeout.sh" "${AGENT_TSC_TIMEOUT:-120}" npx tsc --noEmit 2>&1; then
     echo "ESCALATE: tsc --noEmit failed in fresh worktree — base branch is broken" >&2
     exit 2
   fi

@@ -3,6 +3,7 @@
 | Script | Purpose |
 |---|---|
 | `scripts/parse-args.sh` | Parse invocation input → ticket_id, mode, flags, repo info |
+| `scripts/preflight.sh` | Pre-flight validation: tools, auth, env, repos |
 | `scripts/resolve-repo.sh` | Resolve target repo from ticket ID via repos.json |
 | `scripts/generate-branch-name.sh` | Generate branch name from ticket metadata |
 | `scripts/validate-branch-name.sh` | Validate branch name format + employee code |
@@ -15,6 +16,7 @@
 | `scripts/retry-with-backoff.sh` | Exponential backoff retry wrapper |
 | `scripts/record-agent-versions.sh` | Capture agent prompt versions |
 | `scripts/validate-schemas.js` | Validate JSON schemas and data files |
+| `scripts/with-timeout.sh` | Cross-platform command timeout wrapper |
 | `scripts/detect-jira.sh` | Detect Jira Cloud vs Server |
 | `scripts/setup.sh` | Environment validation and prerequisites |
 | `scripts/check-branch-before-push.sh` | Verify branch name + protected branch check before push |

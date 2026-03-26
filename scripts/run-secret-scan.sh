@@ -68,13 +68,42 @@ fi
 # Run gitleaks on diff — capture report as JSON
 report_file=$(mktemp)
 scan_exit=0
-"$GITLEAKS_BIN" detect \
+"$SCRIPT_DIR/with-timeout.sh" "${AGENT_GITLEAKS_TIMEOUT:-120}" \
+  "$GITLEAKS_BIN" detect \
   --source "$worktree" \
   --log-opts="${base_branch}..HEAD" \
   --report-format=json \
   --report-path="$report_file" \
   $config_flag \
   --no-banner 2>/dev/null || scan_exit=$?
+
+# Timeout: treat as blocked — never skip a scan
+if [[ "$scan_exit" -eq 124 ]]; then
+  echo "BLOCKED: gitleaks timed out — treating as blocked" >&2
+  python3 -c "
+import json,sys
+doc = {
+  'ticket': sys.argv[1],
+  'scanned_at': sys.argv[2],
+  'tool': 'gitleaks',
+  'scan_target': 'diff',
+  'findings': [{
+    'id': 'secret-1',
+    'rule_id': 'timeout',
+    'description': 'gitleaks timed out — scan could not complete, treating as blocked',
+    'file': 'N/A',
+    'line': 1,
+    'commit': 'N/A',
+    'secret_type': 'unknown',
+    'secret_value': '[REDACTED — never logged]'
+  }],
+  'status': 'blocked'
+}
+json.dump(doc, sys.stdout, indent=2)
+" "$ticket_id" "$scan_time" > "$output_file"
+  rm -f "$report_file"
+  exit 1
+fi
 
 # Parse gitleaks output and build SECRETS.json (NEVER include secret values)
 python3 -c "
