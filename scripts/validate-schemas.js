@@ -2,10 +2,10 @@
 
 /**
  * Validates JSON schema files in /schemas and optionally validates
- * data files against their schemas.
+ * data files against their schemas using AJV 2020-12.
  *
  * Usage:
- *   node scripts/validate-schemas.js                    # validate all schemas are valid JSON Schema
+ *   node scripts/validate-schemas.js                    # validate all schemas compile
  *   node scripts/validate-schemas.js data.json schema   # validate data.json against a named schema
  *
  * Examples:
@@ -15,128 +15,112 @@
 
 const fs = require("fs");
 const path = require("path");
+const { Ajv2020, addFormats } = require("./ajv-bundle.js");
 
 const SCHEMAS_DIR = path.resolve(__dirname, "..", "schemas");
 
-const SCHEMA_FILES = [
-  "prd.schema.json",
-  "review.schema.json",
-  "feedback.schema.json",
-  "conflict.schema.json",
-  "repair.schema.json",
-  "secrets.schema.json",
-  "agent-learning.schema.json",
-  "local-ticket.schema.json",
-];
-
-function loadSchema(filename) {
-  const filepath = path.join(SCHEMAS_DIR, filename);
-  const raw = fs.readFileSync(filepath, "utf-8");
-  return JSON.parse(raw);
+function createAjv() {
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  addFormats(ajv);
+  return ajv;
 }
 
-function validateSchemaStructure(filename, schema) {
+function discoverSchemas() {
+  return fs
+    .readdirSync(SCHEMAS_DIR)
+    .filter((f) => f.endsWith(".schema.json"))
+    .sort();
+}
+
+function loadJSON(filepath) {
+  return JSON.parse(fs.readFileSync(filepath, "utf-8"));
+}
+
+// --- Mode 1: validate all schema files compile ---
+
+function validateAllSchemas() {
+  const files = discoverSchemas();
   const errors = [];
+  const ajv = createAjv();
 
-  if (!schema.$schema) {
-    errors.push("missing $schema");
-  }
-  if (!schema.$id) {
-    errors.push("missing $id");
-  }
-  if (!schema.title) {
-    errors.push("missing title");
-  }
-  if (!schema.description) {
-    errors.push("missing description");
-  }
-  if (schema.type !== "object") {
-    errors.push("root type must be 'object'");
-  }
-  if (!schema.required || !Array.isArray(schema.required)) {
-    errors.push("missing required array");
-  }
-  if (schema.additionalProperties !== false) {
-    errors.push("root additionalProperties should be false");
-  }
-
-  // Check all $ref targets resolve
-  const refs = findRefs(schema);
-  for (const ref of refs) {
-    if (ref.startsWith("#/$defs/")) {
-      const defName = ref.replace("#/$defs/", "");
-      if (!schema.$defs || !schema.$defs[defName]) {
-        errors.push(`unresolved $ref: ${ref}`);
-      }
+  for (const file of files) {
+    const filepath = path.join(SCHEMAS_DIR, file);
+    try {
+      const schema = loadJSON(filepath);
+      ajv.compile(schema);
+    } catch (err) {
+      errors.push({ schema: file, message: err.message });
     }
   }
 
-  return errors;
+  const result = {
+    valid: errors.length === 0,
+    schemas_checked: files.length,
+    errors,
+  };
+
+  process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+  process.exit(result.valid ? 0 : 1);
 }
 
-function findRefs(obj, refs = []) {
-  if (obj && typeof obj === "object") {
-    if (obj.$ref) {
-      refs.push(obj.$ref);
-    }
-    for (const value of Object.values(obj)) {
-      findRefs(value, refs);
-    }
-  }
-  return refs;
-}
+// --- Mode 2: validate data file against named schema ---
 
-function validateDataAgainstSchema(dataPath, schemaName) {
+function validateData(dataPath, schemaName) {
   const schemaFile = `${schemaName}.schema.json`;
-  if (!SCHEMA_FILES.includes(schemaFile)) {
-    console.error(`Unknown schema: ${schemaName}`);
-    console.error(`Available: ${SCHEMA_FILES.map((f) => f.replace(".schema.json", "")).join(", ")}`);
+  const schemaPath = path.join(SCHEMAS_DIR, schemaFile);
+
+  if (!fs.existsSync(schemaPath)) {
+    const available = discoverSchemas().map((f) => f.replace(".schema.json", ""));
+    const result = {
+      valid: false,
+      errors: [
+        {
+          path: "",
+          message: `Unknown schema: ${schemaName}. Available: ${available.join(", ")}`,
+        },
+      ],
+    };
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     process.exit(1);
   }
 
+  const resolvedDataPath = path.resolve(dataPath);
   let data;
   try {
-    const raw = fs.readFileSync(path.resolve(dataPath), "utf-8");
-    data = JSON.parse(raw);
+    data = loadJSON(resolvedDataPath);
   } catch (err) {
-    console.error(`Failed to read ${dataPath}: ${err.message}`);
+    const result = {
+      valid: false,
+      errors: [{ path: "", message: `Failed to read ${dataPath}: ${err.message}` }],
+    };
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     process.exit(1);
   }
 
-  const schema = loadSchema(schemaFile);
+  const ajv = createAjv();
+  const schema = loadJSON(schemaPath);
+  const validate = ajv.compile(schema);
+  const valid = validate(data);
 
-  // Basic structural validation (required fields, types)
-  const errors = validateRequired(data, schema, "root");
-  if (errors.length === 0) {
-    console.log(`PASS  ${dataPath} validates against ${schemaName}`);
-  } else {
-    console.error(`FAIL  ${dataPath} against ${schemaName}:`);
-    errors.forEach((e) => console.error(`  - ${e}`));
-    process.exit(1);
-  }
-}
-
-function validateRequired(data, schema, path) {
-  const errors = [];
-
-  if (schema.required) {
-    for (const field of schema.required) {
-      if (!(field in data)) {
-        errors.push(`${path}: missing required field '${field}'`);
-      }
-    }
+  if (valid) {
+    process.stdout.write(JSON.stringify({ valid: true }, null, 2) + "\n");
+    process.exit(0);
   }
 
-  if (schema.properties && typeof data === "object" && data !== null) {
-    for (const [key, value] of Object.entries(data)) {
-      const propSchema = schema.properties[key];
-      if (!propSchema && schema.additionalProperties === false) {
-        errors.push(`${path}: unexpected field '${key}'`);
-      }
-    }
-  }
+  const errors = (validate.errors || []).map((e) => ({
+    path: e.instancePath || "/",
+    message: e.message || "unknown error",
+    ...(e.params && Object.keys(e.params).length > 0 ? { expected: JSON.stringify(e.params) } : {}),
+  }));
 
-  return errors;
+  const result = { valid: false, errors };
+  process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+
+  // Write invalid data for debugging
+  const invalidPath = resolvedDataPath + ".invalid.json";
+  fs.writeFileSync(invalidPath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+
+  process.exit(1);
 }
 
 // --- Main ---
@@ -144,49 +128,14 @@ function validateRequired(data, schema, path) {
 function main() {
   const args = process.argv.slice(2);
 
-  // Mode: validate data file against schema
   if (args.length === 2) {
-    validateDataAgainstSchema(args[0], args[1]);
-    return;
-  }
-
-  // Mode: validate all schema files
-  console.log("Validating schema files...\n");
-  let allPassed = true;
-
-  for (const file of SCHEMA_FILES) {
-    const filepath = path.join(SCHEMAS_DIR, file);
-
-    if (!fs.existsSync(filepath)) {
-      console.error(`FAIL  ${file} — file not found`);
-      allPassed = false;
-      continue;
-    }
-
-    let schema;
-    try {
-      schema = loadSchema(file);
-    } catch (err) {
-      console.error(`FAIL  ${file} — invalid JSON: ${err.message}`);
-      allPassed = false;
-      continue;
-    }
-
-    const errors = validateSchemaStructure(file, schema);
-    if (errors.length === 0) {
-      console.log(`PASS  ${file}`);
-    } else {
-      console.error(`FAIL  ${file}`);
-      errors.forEach((e) => console.error(`  - ${e}`));
-      allPassed = false;
-    }
-  }
-
-  console.log();
-  if (allPassed) {
-    console.log(`All ${SCHEMA_FILES.length} schemas valid.`);
+    validateData(args[0], args[1]);
+  } else if (args.length === 0) {
+    validateAllSchemas();
   } else {
-    console.error("Some schemas failed validation.");
+    process.stderr.write(
+      "Usage:\n  node validate-schemas.js                  # validate all schemas\n  node validate-schemas.js data.json schema  # validate data against schema\n"
+    );
     process.exit(1);
   }
 }
