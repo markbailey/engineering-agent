@@ -178,6 +178,58 @@ body::after {
 .tab-status.error, .tab-status.blocked_secrets { background: var(--accent-red); animation: pulse-red 1.5s ease-in-out infinite; }
 .tab-status.pending { background: var(--text-muted); }
 
+/* === VIEW TOGGLE === */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.view-toggle-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.view-toggle-btn:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+  border-right: none;
+}
+
+.view-toggle-btn:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.view-toggle-btn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.view-toggle-btn.selected {
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+  border-color: var(--accent-green);
+}
+
+.view-toggle-btn.selected + .view-toggle-btn {
+  border-left-color: var(--accent-green);
+}
+
+.view-toggle-count {
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
 /* === MAIN CONTENT === */
 .main {
   grid-area: main;
@@ -600,6 +652,7 @@ body::after {
   const state = {
     runs: new Map(),
     activeRunId: null,
+    viewFilter: 'active',
   };
 
   let autoScroll = true;
@@ -649,7 +702,14 @@ body::after {
         state.runs.set(run.ticketId, run);
       }
       if (runs.length > 0 && !state.activeRunId) {
-        state.activeRunId = runs[0].ticketId;
+        const firstActive = runs.find(r => r.isActive === 'active');
+        if (firstActive) {
+          state.activeRunId = firstActive.ticketId;
+          state.viewFilter = 'active';
+        } else {
+          state.activeRunId = runs[0].ticketId;
+          state.viewFilter = 'inactive';
+        }
       }
       render();
     } catch {}
@@ -661,6 +721,11 @@ body::after {
       state.runs.set(event.ticketId, event.data);
       if (!state.activeRunId) {
         state.activeRunId = event.ticketId;
+        state.viewFilter = event.data.isActive || 'active';
+      }
+      // View follows run
+      if (event.ticketId === state.activeRunId) {
+        state.viewFilter = event.data.isActive || 'active';
       }
     } else if (event.type === 'remove') {
       state.runs.delete(event.ticketId);
@@ -682,10 +747,39 @@ body::after {
     bar.innerHTML = '';
     bar.style.display = state.runs.size === 0 ? 'none' : 'flex';
 
+    // Count active/inactive
+    let activeCount = 0;
+    let inactiveCount = 0;
+    for (const [, run] of state.runs) {
+      if (run.isActive === 'active') activeCount++;
+      else inactiveCount++;
+    }
+
+    // View toggle
+    const toggle = document.createElement('div');
+    toggle.className = 'view-toggle';
+
+    const activeBtn = document.createElement('button');
+    activeBtn.className = 'view-toggle-btn' + (state.viewFilter === 'active' ? ' selected' : '');
+    activeBtn.innerHTML = 'Active<span class="view-toggle-count">' + activeCount + '</span>';
+    activeBtn.onclick = () => { state.viewFilter = 'active'; render(); };
+
+    const inactiveBtn = document.createElement('button');
+    inactiveBtn.className = 'view-toggle-btn' + (state.viewFilter === 'inactive' ? ' selected' : '');
+    inactiveBtn.innerHTML = 'Inactive<span class="view-toggle-count">' + inactiveCount + '</span>';
+    inactiveBtn.onclick = () => { state.viewFilter = 'inactive'; render(); };
+
+    toggle.appendChild(activeBtn);
+    toggle.appendChild(inactiveBtn);
+    bar.appendChild(toggle);
+
+    // Filtered tabs
     for (const [id, run] of state.runs) {
+      if (run.isActive !== state.viewFilter) continue;
+
       const tab = document.createElement('button');
       tab.className = 'tab' + (id === state.activeRunId ? ' active' : '');
-      tab.onclick = () => { state.activeRunId = id; render(); };
+      tab.onclick = () => { state.activeRunId = id; state.viewFilter = run.isActive; render(); };
 
       const dot = document.createElement('span');
       dot.className = 'tab-status ' + (run.overallStatus || 'pending');
