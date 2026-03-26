@@ -6,7 +6,7 @@ ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 ISSUE := $(word 1,$(ARGS))
 EXTRA := $(wordlist 2,$(words $(ARGS)),$(ARGS))
 
-.PHONY: help start dry-run resume pause stop ready-pr address-feedback dashboard dashboard-test
+.PHONY: help start dry-run resume pause stop ready-pr auto-merge address-feedback dashboard dashboard-test
 .DEFAULT_GOAL := help
 
 help:
@@ -21,6 +21,7 @@ help:
 	@echo "  pause             Stop at next safe checkpoint"
 	@echo "  stop              Immediate stop, preserve state"
 	@echo "  ready-pr          Mark PR as ready for review (not draft)"
+	@echo "  auto-merge        Full workflow with auto-merge enabled"
 	@echo "  address-feedback  Address PR feedback including bot comments"
 	@echo "  dashboard         Start the real-time dashboard server"
 	@echo "  dashboard-test    Run dashboard tests"
@@ -36,6 +37,7 @@ help:
 	@echo "  make dry-run PROJ-123"
 	@echo "  make dry-run ./tickets/my-feature.json"
 	@echo "  make ready-pr PROJ-123"
+	@echo "  make auto-merge PROJ-123"
 	@echo "  make resume PROJ-123"
 	@echo "  make address-feedback 42"
 	@echo "  make address-feedback 42 -- --dry-run"
@@ -57,6 +59,9 @@ stop: _require-issue
 
 ready-pr: _require-issue
 	claude --permission-mode bypassPermissions "/start $(ISSUE) --ready-pr $(EXTRA)"
+
+auto-merge: _require-issue
+	claude --permission-mode bypassPermissions "/start $(ISSUE) --auto-merge $(EXTRA)"
 
 dashboard:
 	node dashboard/server.js

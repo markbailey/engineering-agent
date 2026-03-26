@@ -34,4 +34,5 @@
 | `scripts/run-log.sh` | Structured JSONL logger — writes to runs/TICKET-ID/run.log |
 | `scripts/notify.sh` | Terminal notifications on key events + logs EVENT to run.log |
 | `scripts/run-summary.sh` | Write run summary (stats, counts) to run.log at end of ticket |
+| `scripts/pr-monitor-poll.sh` | Lightweight GitHub PR state poller for monitoring loop |
 | `scripts/agent-learning.sh` | Agent learning system: gather, filter, write, lifecycle, escalate, increment-runs |

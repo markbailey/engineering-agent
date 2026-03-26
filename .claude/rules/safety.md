@@ -10,3 +10,4 @@
 - **Always validate branch name** before creating
 - **Always validate `AGENT_EMPLOYEE_CODE`** before any branch operation
 - **Rate limit backoff** — exponential retry (2s → 8s → 30s), max 3, then escalate. Never increments auto-repair failure counter.
+- **Auto-merge uses GitHub branch protection** — `gh pr merge --auto --merge` only. Never use `--admin` to bypass protections.

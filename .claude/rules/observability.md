@@ -48,6 +48,9 @@ Use `scripts/notify.sh` for key events that need human attention:
 - `run_complete` / `run_failed` — terminal state
 - `blocked` — ticket blocked by dependency
 - `task_complete` — individual task done
+- `pr_ready` — PR marked ready for review (draft→ready)
+- `auto_merge_enabled` — auto-merge enabled on PR
+- `pr_merged` — PR merge detected
 
 ## Run Summary
 

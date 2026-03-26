@@ -32,7 +32,7 @@ If parse fails → STOP with error message.
 
 Execute CLAUDE.md "Startup Sequence" in order:
 
-0. Write PID file: `scripts/pid.sh write {ticket_id}`
+0. Write PID file: `scripts/pid.sh write {ticket_id} $PPID`
 1. Read `REPAIR_KNOWLEDGE.json` — store in memory
 2. Read `AGENT_LEARNING.json` — store in memory
 3. Run `scripts/worktree-scan.sh` — report orphans to human (non-blocking)
@@ -80,8 +80,30 @@ TICKET INTAKE → PLANNING → STOP (output PRD.json for review)
 
 ### Flags
 - `--ready-pr`: PR Agent opens as ready (not draft)
+- `--auto-merge`: enable GitHub auto-merge when PR is approved + CI green
 - `--pause`: stop at next safe checkpoint (see CLAUDE.md "Safe Checkpoints"), remove PID file
 - `--stop`: immediate stop, preserve PRD.json state, remove PID file
+
+### PR Monitoring Loop (after PR CREATION)
+
+After PR Agent opens the PR, enter the monitoring loop:
+
+1. Set `overall_status: "pr_monitoring"` in PRD.json
+2. **Poll loop:**
+   - Run `scripts/pr-monitor-poll.sh {ticket_id} {pr_number}` for lightweight state check
+   - If state unchanged from last poll: sleep `AGENT_PR_MONITOR_INTERVAL` (default 60s), continue
+   - If state changed: invoke PR Monitor Agent with full context
+3. **Route on `action_required`:**
+   - `none` → continue polling
+   - `ci_passed_draft` → PR Agent action=ready, then continue polling
+   - `address_feedback` → Developer Agent → QA → Critic → PR Agent push, then continue polling
+   - `conflict_resolution` → conflict-resolution.sh → QA → PR Agent push, then continue polling
+   - `dependency_merged` → conflict-resolution.sh against main → QA → PR Agent push, then continue polling
+   - `approved` → if `--auto-merge`: PR Agent action=merge; else notify human, continue polling
+   - `merged` → break loop, proceed to POST-MERGE
+   - `escalate` → ESCALATE, break loop
+4. **Exit conditions:** `--pause` or `--stop` flags break at next safe checkpoint
+5. Only increment `check-loop-limit.sh pr_feedback` on feedback/conflict rounds, not on every poll
 
 ---
 

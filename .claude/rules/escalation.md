@@ -20,3 +20,4 @@ The agent stops and surfaces to human when:
 | PR feedback stalled or contradictory | ESCALATE |
 | Rate limit retries exhausted (3 attempts) | ESCALATE |
 | Persistent learning pattern (2+ recurrences after instruction) | Report to human |
+| Auto-merge failed (branch protection not met after approval) | Notify human, do not retry |

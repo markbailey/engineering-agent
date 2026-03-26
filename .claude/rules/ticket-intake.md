@@ -23,6 +23,9 @@ claude-code run --ticket PROJ-123 --stop
 
 # Mark PR ready for review (not draft)
 claude-code run --ticket PROJ-123 --ready-pr
+
+# Full workflow with auto-merge enabled
+claude-code run --ticket PROJ-123 --auto-merge
 ```
 
 ## Input Source Detection
