@@ -6,6 +6,8 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [[ $# -lt 2 ]]; then
   echo "Usage: orphan-check.sh <worktree_path> <base_branch>" >&2
   exit 2
@@ -42,7 +44,8 @@ for f in $base_deleted; do
   base_no_ext="${f%.*}"
   name=$(basename "$base_no_ext")
   # Check if any feature files reference the deleted file
-  refs=$(grep -rl "$name" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v node_modules | grep -v ".git" || true)
+  refs=$("$SCRIPT_DIR/with-timeout.sh" "${AGENT_GREP_TIMEOUT:-30}" grep -rl "$name" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null || true)
+  refs=$(echo "$refs" | grep -v node_modules | grep -v ".git" || true)
   if [[ -n "$refs" ]]; then
     status="fail"
     deleted_callsites+=("$f (referenced by feature code)")
@@ -56,7 +59,8 @@ while IFS=$'\t' read -r _ old_name new_name; do
   [[ -z "$old_name" ]] && continue
   old_base=$(basename "${old_name%.*}")
   # Check if our feature references the old name
-  refs=$(grep -rl "$old_base" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v node_modules | grep -v ".git" || true)
+  refs=$("$SCRIPT_DIR/with-timeout.sh" "${AGENT_GREP_TIMEOUT:-30}" grep -rl "$old_base" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null || true)
+  refs=$(echo "$refs" | grep -v node_modules | grep -v ".git" || true)
   if [[ -n "$refs" ]]; then
     status="fail"
     ref_files=$(echo "$refs" | tr '\n' ',' | sed 's/,$//')
@@ -75,7 +79,8 @@ for f in $feature_files; do
   new_exports=$(git diff "$merge_base" HEAD -- "$f" 2>/dev/null | grep "^+" | grep -E "export[[:space:]]+(const|function|class|type|interface|enum)[[:space:]]+" | sed -E 's/.*export[[:space:]]+(const|function|class|type|interface|enum)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\2/' || true)
   for exp in $new_exports; do
     # Check if anything else references this export
-    consumers=$(grep -rl "$exp" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v node_modules | grep -v ".git" | grep -v "$f" || true)
+    consumers=$("$SCRIPT_DIR/with-timeout.sh" "${AGENT_GREP_TIMEOUT:-30}" grep -rl "$exp" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null || true)
+    consumers=$(echo "$consumers" | grep -v node_modules | grep -v ".git" | grep -v "$f" || true)
     if [[ -z "$consumers" ]]; then
       dead_exports+=("$f:$exp")
     fi
