@@ -26,6 +26,7 @@ const SCHEMA_FILES = [
   "repair.schema.json",
   "secrets.schema.json",
   "agent-learning.schema.json",
+  "local-ticket.schema.json",
 ];
 
 function loadSchema(filename) {

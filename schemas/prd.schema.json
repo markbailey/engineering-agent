@@ -10,7 +10,7 @@
     "ticket": {
       "type": "string",
       "pattern": "^[A-Z]+-\\d+$",
-      "description": "Jira issue key (e.g. PROJ-123)"
+      "description": "Issue key (e.g. PROJ-123) — from Jira or local JSON file"
     },
     "title": {
       "type": "string",
@@ -74,6 +74,15 @@
       "type": ["string", "null"],
       "format": "date-time",
       "description": "ISO 8601 timestamp when run completed (null if in progress)"
+    },
+    "input_source": {
+      "type": "string",
+      "enum": ["jira", "local"],
+      "description": "Input source — jira (default) or local JSON file"
+    },
+    "input_file": {
+      "type": ["string", "null"],
+      "description": "Absolute path to local ticket JSON file (null if input_source is jira)"
     }
   },
   "$defs": {

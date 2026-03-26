@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "local-ticket.schema.json",
+  "title": "Local Ticket",
+  "description": "Local JSON file input — bypasses Jira for ad-hoc or offline ticket definitions",
+  "type": "object",
+  "required": ["ticket_id", "title", "type", "requirements", "acceptance_criteria", "repo"],
+  "additionalProperties": false,
+  "properties": {
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]+$",
+      "description": "Ticket identifier — must match PROJ-123 format for downstream tooling compatibility"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short description of the work"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["Story", "Task", "Bug"],
+      "description": "Ticket type — maps to branch type"
+    },
+    "requirements": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Full requirement text"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Acceptance criteria — at least one required"
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Project key in repos.json (e.g. SHRED)"
+    },
+    "components": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional component labels"
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional labels"
+    },
+    "linked_issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional linked issues — logged as warning, not resolved"
+    }
+  }
+}

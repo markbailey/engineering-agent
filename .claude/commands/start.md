@@ -1,6 +1,6 @@
 ---
 name: start
-description: 'Orchestrate multi-agent implementation of a JIRA ticket. Parses args, runs startup, delegates to agents per CLAUDE.md workflow. Args: TICKET-ID [--dry-run] [--resume] [--ready-pr] [--pause] [--stop]'
+description: 'Orchestrate multi-agent implementation of a JIRA ticket or local JSON file. Parses args, runs startup, delegates to agents per CLAUDE.md workflow. Args: TICKET-ID|FILE-PATH [--dry-run] [--resume] [--ready-pr] [--pause] [--stop]'
 ---
 
 # /start — Orchestrator Entry Point
@@ -14,10 +14,15 @@ Execute the full multi-agent engineering workflow defined in CLAUDE.md.
 ## Step 1: Parse Arguments
 
 Run `scripts/parse-args.sh $ARGUMENTS` to extract:
-- `ticket_id` (required)
+- `ticket_id` (required — from Jira ID or local JSON file)
 - `project_key`, `repo_name`, `repo_path`, `github_repo` (resolved from `repos.json`)
 - `mode`: normal | dry_run | resume
 - `ready_pr`, `pause`, `stop` flags
+- `input_source`: `jira` | `local` — determines whether Jira Agent is invoked
+- `input_file`: absolute path to local JSON file (null for Jira input)
+
+Input can be a Jira ticket ID (`PROJ-123`) or a path to a local JSON file (`./ticket.json`).
+File paths are detected by `.json` extension or presence of `/` or `\`.
 
 If parse fails → STOP with error message.
 
@@ -51,11 +56,20 @@ If mode is `resume` OR an existing worktree is found for the ticket_id:
 
 Follow CLAUDE.md "Workflow Definition" exactly, stage by stage:
 
-### Normal Mode
+### Normal Mode (Jira: input_source == "jira")
 ```
 TICKET INTAKE → PLANNING → WORKTREE SETUP → IMPLEMENTATION →
 FULL QA → CONFLICT RESOLUTION → INTERNAL REVIEW →
 SECRET SCAN → PR CREATION → PR MONITORING → POST-MERGE
+```
+
+### Normal Mode (Local: input_source == "local")
+```
+TICKET INTAKE (skip Jira Agent — use local JSON data) →
+PLANNING → WORKTREE SETUP → IMPLEMENTATION →
+FULL QA → CONFLICT RESOLUTION → INTERNAL REVIEW →
+SECRET SCAN → PR CREATION (skip Jira link/transition) →
+PR MONITORING (skip Jira monitoring) → POST-MERGE (skip Jira transition)
 ```
 
 ### Dry Run Mode
