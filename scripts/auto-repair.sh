@@ -156,6 +156,13 @@ with open(kb_file, 'w') as f:
 json.dump(result, sys.stdout, indent=2)
 print()
 " "$1" "$2" "$3" "$4" "$5" "$6" "$KB_FILE"
+
+    # Validate output against schema
+    if ! node "$SCRIPT_DIR/validate-schemas.js" "$KB_FILE" "repair" >/dev/null 2>&1; then
+      echo "ERROR: Schema validation failed for $KB_FILE" >&2
+      # .invalid.json is already written by validate-schemas.js
+      exit 1
+    fi
     ;;
 
   promote)

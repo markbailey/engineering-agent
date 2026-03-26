@@ -259,6 +259,13 @@ with open(al_file, 'w') as f:
 json.dump(result, sys.stdout, indent=2)
 print()
 " "$1" "$2" "$3" "$4" "$AL_FILE"
+
+    # Validate output against schema
+    if ! node "$SCRIPT_DIR/validate-schemas.js" "$AL_FILE" "agent-learning" >/dev/null 2>&1; then
+      echo "ERROR: Schema validation failed for $AL_FILE" >&2
+      # .invalid.json is already written by validate-schemas.js
+      exit 1
+    fi
     ;;
 
   lifecycle)
