@@ -7,12 +7,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/output.sh"
 AGENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPOS_JSON="$AGENT_ROOT/repos.json"
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: resolve-repo.sh <ticket_id>" >&2
-  exit 1
+  emit_error "Usage: resolve-repo.sh <ticket_id>"
 fi
 
 ticket_id="$1"
@@ -21,13 +21,11 @@ ticket_id="$1"
 project_key="${ticket_id%%-*}"
 
 if [[ -z "$project_key" ]]; then
-  echo "{\"error\":\"Cannot extract project key from: $ticket_id\"}" >&2
-  exit 1
+  emit_error "Cannot extract project key from: $ticket_id"
 fi
 
 if [[ ! -f "$REPOS_JSON" ]]; then
-  echo "{\"error\":\"repos.json not found at $REPOS_JSON\"}" >&2
-  exit 1
+  emit_error "repos.json not found at $REPOS_JSON"
 fi
 
 # Lookup repo in repos.json

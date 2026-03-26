@@ -44,4 +44,11 @@ with open(prd_file, 'w') as f:
 print(f'{old_status} -> {new_status}')
 " "$prd_file" "$new_status"
 
+# Validate output against schema
+if ! node "$SCRIPT_DIR/validate-schemas.js" "$prd_file" "prd" >/dev/null 2>&1; then
+  echo "ERROR: Schema validation failed for $prd_file" >&2
+  # .invalid.json is already written by validate-schemas.js
+  exit 1
+fi
+
 exit 0

@@ -158,6 +158,13 @@ print()
 
 rm -f "$report_file"
 
+# Validate output against schema
+if ! node "$SCRIPT_DIR/validate-schemas.js" "$output_file" "secrets" >/dev/null 2>&1; then
+  echo "ERROR: Schema validation failed for $output_file" >&2
+  # .invalid.json is already written by validate-schemas.js
+  exit 1
+fi
+
 # Check outcome
 status=$(python3 -c "
 import json,sys
