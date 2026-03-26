@@ -32,6 +32,7 @@ If parse fails → STOP with error message.
 
 Execute CLAUDE.md "Startup Sequence" in order:
 
+0. Write PID file: `scripts/pid.sh write {ticket_id}`
 1. Read `REPAIR_KNOWLEDGE.json` — store in memory
 2. Read `AGENT_LEARNING.json` — store in memory
 3. Run `scripts/worktree-scan.sh` — report orphans to human (non-blocking)
@@ -79,8 +80,8 @@ TICKET INTAKE → PLANNING → STOP (output PRD.json for review)
 
 ### Flags
 - `--ready-pr`: PR Agent opens as ready (not draft)
-- `--pause`: stop at next safe checkpoint (see CLAUDE.md "Safe Checkpoints")
-- `--stop`: immediate stop, preserve PRD.json state
+- `--pause`: stop at next safe checkpoint (see CLAUDE.md "Safe Checkpoints"), remove PID file
+- `--stop`: immediate stop, preserve PRD.json state, remove PID file
 
 ---
 
@@ -116,3 +117,11 @@ For every agent invocation, follow CLAUDE.md "Agent Invocation Pattern":
 - All escalation conditions from CLAUDE.md "Escalation Conditions" apply
 - On any unhandled error: preserve PRD.json state, report to human
 - Rate-limited API calls: wrap with `scripts/retry-with-backoff.sh`
+
+---
+
+## PID Lifecycle
+
+- **Startup:** `scripts/pid.sh write {ticket_id}` — first action after arg parsing
+- **Clean exit** (workflow complete, `--pause`, `--stop`, escalation): `scripts/pid.sh remove {ticket_id}`
+- Crashed processes leave stale `pid.json` — dashboard detects dead PID via `kill -0`

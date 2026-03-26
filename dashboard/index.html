@@ -125,12 +125,20 @@ body::after {
   display: flex;
   align-items: stretch;
   gap: 2px;
-  padding: 8px 20px 0;
-  background: var(--bg-deep);
+  padding: 0 20px;
+  background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
-  min-height: 28px;
   overflow-x: auto;
   grid-area: tabs;
+}
+
+.tab-bar:empty {
+  display: none;
+}
+
+.tab-bar:not(:empty) {
+  padding-top: 8px;
+  min-height: 28px;
 }
 
 .tab-bar::-webkit-scrollbar { height: 2px; }
@@ -177,6 +185,58 @@ body::after {
 .tab-status.complete, .tab-status.done { background: var(--accent-green); }
 .tab-status.error, .tab-status.blocked_secrets { background: var(--accent-red); animation: pulse-red 1.5s ease-in-out infinite; }
 .tab-status.pending { background: var(--text-muted); }
+
+/* === VIEW TOGGLE === */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.view-toggle-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.view-toggle-btn:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+  border-right: none;
+}
+
+.view-toggle-btn:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.view-toggle-btn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.view-toggle-btn.selected {
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+  border-color: var(--accent-green);
+}
+
+.view-toggle-btn.selected + .view-toggle-btn {
+  border-left-color: var(--accent-green);
+}
+
+.view-toggle-count {
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}
 
 /* === MAIN CONTENT === */
 .main {
@@ -565,6 +625,7 @@ body::after {
     <div class="header-left">
       <div class="logo"><span>&gt;</span> agent<span>.</span>dashboard</div>
     </div>
+    <div id="viewToggleContainer"></div>
     <div class="connection-badge">
       <div class="connection-dot" id="connectionDot"></div>
       <span id="connectionLabel">connecting</span>
@@ -600,9 +661,11 @@ body::after {
   const state = {
     runs: new Map(),
     activeRunId: null,
+    viewFilter: 'active',
   };
 
   let autoScroll = true;
+  const emptyStateTpl = document.getElementById('emptyState').cloneNode(true);
 
   // --- SSE ---
   let evtSource = null;
@@ -649,7 +712,13 @@ body::after {
         state.runs.set(run.ticketId, run);
       }
       if (runs.length > 0 && !state.activeRunId) {
-        state.activeRunId = runs[0].ticketId;
+        const firstActive = runs.find(r => r.isActive === 'active');
+        if (firstActive) {
+          state.activeRunId = firstActive.ticketId;
+        } else {
+          state.viewFilter = 'inactive';
+          state.activeRunId = runs[0].ticketId;
+        }
       }
       render();
     } catch {}
@@ -659,13 +728,13 @@ body::after {
   function handleEvent(event) {
     if (event.type === 'snapshot' && event.data) {
       state.runs.set(event.ticketId, event.data);
-      if (!state.activeRunId) {
+      if (!state.activeRunId && event.data.isActive === state.viewFilter) {
         state.activeRunId = event.ticketId;
       }
     } else if (event.type === 'remove') {
       state.runs.delete(event.ticketId);
       if (state.activeRunId === event.ticketId) {
-        state.activeRunId = state.runs.keys().next().value || null;
+        state.activeRunId = null;
       }
     }
     render();
@@ -673,19 +742,66 @@ body::after {
 
   // --- Rendering ---
   function render() {
+    // Ensure activeRunId matches viewFilter — never override viewFilter
+    if (state.runs.size > 0) {
+      const currentRun = state.runs.get(state.activeRunId);
+      if (!currentRun || currentRun.isActive !== state.viewFilter) {
+        state.activeRunId = null;
+        for (const [id, run] of state.runs) {
+          if (run.isActive === state.viewFilter) {
+            state.activeRunId = id;
+            break;
+          }
+        }
+      }
+    }
+    renderViewToggle();
     renderTabs();
     renderMain();
+  }
+
+  function renderViewToggle() {
+    const container = document.getElementById('viewToggleContainer');
+    container.innerHTML = '';
+
+    if (state.runs.size === 0) return;
+
+    let activeCount = 0;
+    let inactiveCount = 0;
+    for (const [, run] of state.runs) {
+      if (run.isActive === 'active') activeCount++;
+      else inactiveCount++;
+    }
+
+    const toggle = document.createElement('div');
+    toggle.className = 'view-toggle';
+
+    const activeBtn = document.createElement('button');
+    activeBtn.className = 'view-toggle-btn' + (state.viewFilter === 'active' ? ' selected' : '');
+    activeBtn.innerHTML = 'Active<span class="view-toggle-count">' + activeCount + '</span>';
+    activeBtn.onclick = () => { state.viewFilter = 'active'; render(); };
+
+    const inactiveBtn = document.createElement('button');
+    inactiveBtn.className = 'view-toggle-btn' + (state.viewFilter === 'inactive' ? ' selected' : '');
+    inactiveBtn.innerHTML = 'Inactive<span class="view-toggle-count">' + inactiveCount + '</span>';
+    inactiveBtn.onclick = () => { state.viewFilter = 'inactive'; render(); };
+
+    toggle.appendChild(activeBtn);
+    toggle.appendChild(inactiveBtn);
+    container.appendChild(toggle);
   }
 
   function renderTabs() {
     const bar = document.getElementById('tabBar');
     bar.innerHTML = '';
-    bar.style.display = state.runs.size === 0 ? 'none' : 'flex';
 
+    // Filtered tabs
     for (const [id, run] of state.runs) {
+      if (run.isActive !== state.viewFilter) continue;
+
       const tab = document.createElement('button');
       tab.className = 'tab' + (id === state.activeRunId ? ' active' : '');
-      tab.onclick = () => { state.activeRunId = id; render(); };
+      tab.onclick = () => { state.activeRunId = id; state.viewFilter = run.isActive; render(); };
 
       const dot = document.createElement('span');
       dot.className = 'tab-status ' + (run.overallStatus || 'pending');
@@ -704,15 +820,19 @@ body::after {
     const empty = document.getElementById('emptyState');
     const banner = document.getElementById('errorBanner');
 
-    if (state.runs.size === 0) {
+    const run = state.activeRunId ? state.runs.get(state.activeRunId) : null;
+    if (!run) {
       main.innerHTML = '';
-      main.appendChild(empty);
+      const placeholder = emptyStateTpl.cloneNode(true);
+      placeholder.removeAttribute('id');
+      if (state.runs.size > 0) {
+        placeholder.querySelector('div:nth-child(2)').textContent = 'no ' + state.viewFilter + ' runs';
+        placeholder.querySelector('div:nth-child(3)').textContent = '';
+      }
+      main.appendChild(placeholder);
       banner.classList.remove('visible');
       return;
     }
-
-    const run = state.runs.get(state.activeRunId);
-    if (!run) return;
 
     // Error banner
     if (run.errors.length > 0) {

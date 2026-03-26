@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseLogLine, buildRunState, mergeArtifacts } = require('../lib/state.js');
+const { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity } = require('../lib/state.js');
 
 describe('parseLogLine', () => {
   it('parses valid JSONL log entry', () => {
@@ -135,5 +135,35 @@ describe('mergeArtifacts', () => {
     assert.equal(merged.overallStatus, null);
     assert.equal(merged.tasks.length, 0);
     assert.equal(merged.artifacts.hasPrd, false);
+  });
+});
+
+describe('classifyRunActivity', () => {
+  it('returns inactive for terminal status done even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'done' }, true), 'inactive');
+  });
+
+  it('returns inactive for terminal status escalated even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'escalated' }, true), 'inactive');
+  });
+
+  it('returns inactive for terminal status blocked_secrets even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'blocked_secrets' }, true), 'inactive');
+  });
+
+  it('returns active for non-terminal status with pidAlive true', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, true), 'active');
+  });
+
+  it('returns inactive for non-terminal status with pidAlive false', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, false), 'inactive');
+  });
+
+  it('returns active for null overallStatus with pidAlive true', () => {
+    assert.equal(classifyRunActivity({ overallStatus: null }, true), 'active');
+  });
+
+  it('returns inactive for null overallStatus with pidAlive false', () => {
+    assert.equal(classifyRunActivity({ overallStatus: null }, false), 'inactive');
   });
 });

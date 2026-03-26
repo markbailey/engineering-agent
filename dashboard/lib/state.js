@@ -88,4 +88,11 @@ function mergeArtifacts(state, artifacts) {
   return merged;
 }
 
-module.exports = { parseLogLine, buildRunState, mergeArtifacts };
+const TERMINAL_STATUSES = ['done', 'escalated', 'blocked_secrets'];
+
+function classifyRunActivity(runState, pidAlive) {
+  if (TERMINAL_STATUSES.includes(runState.overallStatus)) return 'inactive';
+  return pidAlive ? 'active' : 'inactive';
+}
+
+module.exports = { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity };

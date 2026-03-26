@@ -5,7 +5,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { LogTailer, scanRunsDir } = require('./lib/watcher.js');
-const { parseLogLine, buildRunState, mergeArtifacts } = require('./lib/state.js');
+const { parseLogLine, buildRunState, mergeArtifacts, classifyRunActivity } = require('./lib/state.js');
 
 const DEFAULT_PORT = 3847;
 const DEFAULT_POLL_MS = 1000;
@@ -57,6 +57,9 @@ function createDashboardServer(opts = {}) {
       const artifacts = loadArtifacts(ticketDir);
       run.state = mergeArtifacts(newState, artifacts);
 
+      const pidAlive = checkPidAlive(ticketDir);
+      run.state.isActive = classifyRunActivity(run.state, pidAlive);
+
       if (JSON.stringify(run.state) !== prevJson) {
         changed = true;
       }
@@ -72,6 +75,17 @@ function createDashboardServer(opts = {}) {
 
     if (changed) {
       broadcast();
+    }
+  }
+
+  function checkPidAlive(ticketDir) {
+    try {
+      const raw = fs.readFileSync(path.join(ticketDir, 'pid.json'), 'utf8');
+      const { pid } = JSON.parse(raw);
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
     }
   }
 

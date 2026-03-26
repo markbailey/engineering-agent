@@ -166,4 +166,57 @@ describe('Dashboard Server', () => {
     assert.equal(data[0].tasks.length, 1);
     assert.equal(data[0].artifacts.hasPrd, true);
   });
+
+  it('run with valid pid.json (current process PID) → isActive === active', async () => {
+    const ticketDir = path.join(runsDir, 'PID-1');
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(
+      path.join(ticketDir, 'run.log'),
+      '{"ts":"2026-03-21T14:30:00Z","level":"INFO","cat":"startup","msg":"Run started"}\n'
+    );
+    fs.writeFileSync(
+      path.join(ticketDir, 'pid.json'),
+      JSON.stringify({ pid: process.pid, startedAt: '2026-03-21T14:30:00Z' })
+    );
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const res = await fetch(`${baseUrl}/api/runs`);
+    const data = JSON.parse(res.body);
+    assert.equal(data[0].isActive, 'active');
+  });
+
+  it('run with no pid.json → isActive === inactive', async () => {
+    const ticketDir = path.join(runsDir, 'PID-2');
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(
+      path.join(ticketDir, 'run.log'),
+      '{"ts":"2026-03-21T14:30:00Z","level":"INFO","cat":"startup","msg":"Run started"}\n'
+    );
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const res = await fetch(`${baseUrl}/api/runs`);
+    const data = JSON.parse(res.body);
+    assert.equal(data[0].isActive, 'inactive');
+  });
+
+  it('run with stale pid.json (dead PID) → isActive === inactive', async () => {
+    const ticketDir = path.join(runsDir, 'PID-3');
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(
+      path.join(ticketDir, 'run.log'),
+      '{"ts":"2026-03-21T14:30:00Z","level":"INFO","cat":"startup","msg":"Run started"}\n'
+    );
+    fs.writeFileSync(
+      path.join(ticketDir, 'pid.json'),
+      JSON.stringify({ pid: 99999999, startedAt: '2026-03-21T14:30:00Z' })
+    );
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const res = await fetch(`${baseUrl}/api/runs`);
+    const data = JSON.parse(res.body);
+    assert.equal(data[0].isActive, 'inactive');
+  });
 });
