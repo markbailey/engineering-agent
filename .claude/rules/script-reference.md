@@ -43,3 +43,5 @@
 | `scripts/abort-run.sh` | Abort a run: close draft PR, set aborted status, write escalation, summarise |
 | `scripts/cleanup-orphans.sh` | Audit runs + worktrees, clean up orphaned ones (worktree, branches, run dir) |
 | `scripts/dry-run-report.sh` | Generate human-readable dry-run summary from run artifacts |
+| `scripts/collect-metrics.sh` | Collect run metrics from run.log + PRD.json → METRICS.json |
+| `scripts/aggregate-metrics.sh` | Aggregate metrics across all runs → JSON summary to stdout |

@@ -8,13 +8,36 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ $# -lt 2 ]]; then
-  echo "Usage: orphan-check.sh <worktree_path> <base_branch>" >&2
+prd_path=""
+args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prd) prd_path="$2"; shift 2 ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+
+if [[ ${#args[@]} -lt 2 ]]; then
+  echo "Usage: orphan-check.sh <worktree_path> <base_branch> [--prd <path>]" >&2
   exit 2
 fi
 
-wt_path="$1"
-base_branch="$2"
+wt_path="${args[0]}"
+base_branch="${args[1]}"
+
+# If PRD provided, extract files_affected to scope analysis
+prd_files=()
+if [[ -n "$prd_path" && -f "$prd_path" ]]; then
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && prd_files+=("$f")
+  done < <(node -e "
+    const fs = require('fs');
+    const prd = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+    const files = new Set();
+    (prd.tasks || []).forEach(t => (t.files_affected || []).forEach(f => files.add(f)));
+    files.forEach(f => console.log(f));
+  " "$prd_path" 2>/dev/null)
+fi
 
 cd "$wt_path"
 
@@ -35,6 +58,20 @@ base_deleted=$(git diff --name-only --diff-filter=D "$merge_base" "origin/$base_
 
 # Files added/modified by our feature (compare merge-base to HEAD)
 feature_files=$(git diff --name-only "$merge_base" HEAD 2>/dev/null | grep -v node_modules || echo "")
+
+# If PRD scoping active, filter feature_files to only PRD-listed files
+if [[ ${#prd_files[@]} -gt 0 ]]; then
+  filtered=""
+  for f in $feature_files; do
+    for pf in "${prd_files[@]}"; do
+      if [[ "$f" == "$pf" ]]; then
+        filtered+="$f"$'\n'
+        break
+      fi
+    done
+  done
+  feature_files="$filtered"
+fi
 
 # --- Category 1: Deleted callsites ---
 # Base deleted files that our feature code imports from
