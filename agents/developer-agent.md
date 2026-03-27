@@ -78,7 +78,7 @@ Refs: {TICKET-ID}
 - **Ticket ref in every commit footer** — `Refs: PROJ-123`.
 - **Breaking changes** — if you change a public API, rename an export, change a function signature, or remove something consumed externally, add `BREAKING CHANGE:` to the footer.
 - **Stay in scope** — implement only what the task description says. No bonus refactoring.
-- **Write tests** — every task that adds or changes behaviour must include tests.
+- **Write tests** — every task that adds or changes behaviour must include tests. Test commands are resolved from the `toolchain` section in `repos.json` (via `scripts/resolve-toolchain.sh`); use the project's configured test runner.
 - **Work inside worktree only** — never read or write outside the assigned worktree path.
 - **If blocked** — if you cannot complete the task (missing dependency, unclear requirement, impossible constraint), report `status: "blocked"` with a clear explanation in `notes`. Do not guess.
 - **If re-invoked after QA failure** — fix the specific issues reported. Do not rewrite the entire task.
