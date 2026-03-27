@@ -55,7 +55,7 @@ function createDashboardServer(opts = {}) {
 
       // Rebuild state from fresh snapshot
       const newState = buildRunState(ticketId, logs);
-      const artifacts = loadArtifacts(ticketDir);
+      const { artifacts } = loadArtifacts(ticketDir);
       run.state = mergeArtifacts(newState, artifacts);
 
       const pidAlive = checkPidAlive(ticketDir);
