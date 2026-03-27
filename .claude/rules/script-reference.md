@@ -45,3 +45,5 @@
 | `scripts/dry-run-report.sh` | Generate human-readable dry-run summary from run artifacts |
 | `scripts/collect-metrics.sh` | Collect run metrics from run.log + PRD.json → METRICS.json |
 | `scripts/aggregate-metrics.sh` | Aggregate metrics across all runs → JSON summary to stdout |
+| `scripts/dependency-graph.sh` | Visualize ticket dependency graph (JSON, ASCII, DOT output) |
+| `scripts/revert-run.sh` | Mechanical revert pipeline: revert merge commit, test, secret scan, open PR |
