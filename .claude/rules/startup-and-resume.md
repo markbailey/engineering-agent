@@ -20,3 +20,13 @@ On `--resume` mode (or when an existing worktree is detected for the ticket):
 4. Read `PRD.json` from `runs/{ticket_id}/`.
 5. Find last task with `status: verified` — continue from next `pending` task.
 6. Resume workflow from the appropriate stage based on `PRD.json.overall_status`.
+
+## PR Monitoring Resume
+
+On `--resume` when `PRD.json.overall_status == "pr_monitoring"`:
+
+1. Skip intake, planning, worktree setup, implementation — go directly to PR monitoring resume.
+2. Read `PRD.json` for `pr_number`, `github_repo`, `ticket_id`.
+3. Fresh poll: `scripts/pr-monitor-poll.sh {ticket_id} {pr_number} --save --github-repo={github_repo}`.
+4. If draft or unchanged: log and EXIT.
+5. If changed: invoke PR Monitor Agent, handle action, EXIT (or proceed to POST-MERGE if merged).

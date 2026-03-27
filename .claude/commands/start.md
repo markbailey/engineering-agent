@@ -49,7 +49,9 @@ If mode is `resume` OR an existing worktree is found for the ticket_id:
 3. Compare agent versions against `PRD.json.agent_versions` — log mismatches
 4. Read `PRD.json` from `runs/{ticket_id}/`
 5. Find last verified task → resume from next pending
-6. Skip to the appropriate workflow stage based on `PRD.json.overall_status`
+6. Skip to the appropriate workflow stage based on `PRD.json.overall_status`:
+   - If `overall_status == "pr_monitoring"`: skip directly to **PR MONITORING RESUME** (bypass intake, planning, implementation)
+   - Otherwise: resume from the detected stage
 
 ---
 
@@ -84,26 +86,32 @@ TICKET INTAKE → PLANNING → STOP (output PRD.json for review)
 - `--pause`: stop at next safe checkpoint (see CLAUDE.md "Safe Checkpoints"), remove PID file
 - `--stop`: immediate stop, preserve PRD.json state, remove PID file
 
-### PR Monitoring Loop (after PR CREATION)
+### PR Monitoring — Exit (after PR CREATION)
 
-After PR Agent opens the PR, enter the monitoring loop:
+After PR Agent opens the PR:
 
 1. Set `overall_status: "pr_monitoring"` in PRD.json
-2. **Poll loop:**
-   - Run `scripts/pr-monitor-poll.sh {ticket_id} {pr_number}` for lightweight state check
-   - If state unchanged from last poll: sleep `AGENT_PR_MONITOR_INTERVAL` (default 60s), continue
-   - If state changed: invoke PR Monitor Agent with full context
-3. **Route on `action_required`:**
-   - `none` → continue polling
-   - `ci_passed_draft` → PR Agent action=ready, then continue polling
-   - `address_feedback` → Developer Agent → QA → Critic → PR Agent push, then continue polling
-   - `conflict_resolution` → conflict-resolution.sh → QA → PR Agent push, then continue polling
-   - `dependency_merged` → conflict-resolution.sh against main → QA → PR Agent push, then continue polling
-   - `approved` → if `--auto-merge`: PR Agent action=merge; else notify human, continue polling
-   - `merged` → break loop, proceed to POST-MERGE
-   - `escalate` → ESCALATE, break loop
-4. **Exit conditions:** `--pause` or `--stop` flags break at next safe checkpoint
-5. Only increment `check-loop-limit.sh pr_feedback` on feedback/conflict rounds, not on every poll
+2. If `--auto-merge`: PR Agent action=merge → `gh pr merge --auto --merge`
+3. Save initial poll: `scripts/pr-monitor-poll.sh {ticket_id} {pr_number} --save --github-repo={github_repo}`
+4. Log exit, remove PID: `scripts/pid.sh remove {ticket_id}`
+5. **EXIT** — workflow terminates. External trigger (cron or manual `make resume`) resumes.
+
+### PR Monitoring — Resume (on `--resume` when `overall_status == "pr_monitoring"`)
+
+1. Fresh poll: `scripts/pr-monitor-poll.sh {ticket_id} {pr_number} --save --github-repo={github_repo}`
+2. If `is_draft == true`: log "PR is draft, skipping", **EXIT**
+3. If `changed == false`: log "no changes", **EXIT**
+4. Invoke PR Monitor Agent with full context
+5. **Route on `action_required`:**
+   - `none` → **EXIT**
+   - `ci_passed_draft` → PR Agent action=ready → if `--auto-merge`: PR Agent action=merge → **EXIT**
+   - `address_feedback` → PR Agent set draft → Developer → QA → Critic → push → PR Agent ready → **EXIT**
+   - `conflict_resolution` → PR Agent set draft → conflict-resolution.sh → QA → push → PR Agent ready → **EXIT**
+   - `dependency_merged` → PR Agent set draft → merge main → QA → push → PR Agent ready → **EXIT**
+   - `approved` → if `--auto-merge`: PR Agent action=merge → **EXIT**; else notify human → **EXIT**
+   - `merged` → proceed to **POST-MERGE** (do not exit)
+   - `escalate` → ESCALATE (terminal)
+6. Only increment `check-loop-limit.sh pr_feedback` on feedback/conflict rounds
 
 ---
 

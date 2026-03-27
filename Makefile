@@ -6,7 +6,7 @@ ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 ISSUE := $(word 1,$(ARGS))
 EXTRA := $(wordlist 2,$(words $(ARGS)),$(ARGS))
 
-.PHONY: help start dry-run resume pause stop ready-pr auto-merge address-feedback dashboard dashboard-test
+.PHONY: help start dry-run resume revert pause stop ready-pr auto-merge address-feedback dashboard dashboard-test monitor test test-scripts test-agent clean clean-dry
 .DEFAULT_GOAL := help
 
 help:
@@ -23,6 +23,7 @@ help:
 	@echo "  ready-pr          Mark PR as ready for review (not draft)"
 	@echo "  auto-merge        Full workflow with auto-merge enabled"
 	@echo "  address-feedback  Address PR feedback including bot comments"
+	@echo "  monitor           Poll all active PRs, resume changed ones"
 	@echo "  dashboard         Start the real-time dashboard server"
 	@echo "  dashboard-test    Run dashboard tests"
 	@echo "  help              Show this message"
@@ -71,6 +72,9 @@ dashboard-test:
 
 address-feedback: _require-issue
 	claude --permission-mode bypassPermissions "/address-feedback $(ISSUE) --include-bots $(EXTRA)"
+
+monitor:
+	bash scripts/pr-monitor-cron.sh --trigger
 
 _require-issue:
 ifndef ISSUE

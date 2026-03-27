@@ -92,45 +92,55 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
           → If input_source == "local": omit Jira link, skip Jira transition
       → Exception: if --ready-pr flag was passed, mark as ready for review
 
-  → PR MONITORING (polling loop — runs until terminal state)
+  → PR MONITORING (terminate-and-resume — workflow exits, resumes on demand)
       → Set overall_status: "pr_monitoring"
-      → Loop:
-          → Poll: `scripts/pr-monitor-poll.sh {ticket_id} {pr_number} {AGENT_PR_MONITOR_INTERVAL}`
-          → If no change from last poll: sleep {AGENT_PR_MONITOR_INTERVAL} (default 60s), continue loop
-          → If change detected: invoke PR Monitor Agent with full context
-          → Route on action_required:
-              → "none": continue loop
-              → "ci_passed_draft": PR Agent action=ready → mark PR ready for review
-              → "address_feedback":
-                  → `scripts/check-loop-limit.sh {ticket} pr_feedback 5 increment`
-                  → Generate FEEDBACK.json
-                  → Developer Agent resolves
-                  → QA re-verify
-                  → Conflict Resolution re-run
-                  → The Critic re-reviews (if code changes)
-                  → `scripts/check-branch-before-push.sh {worktree}` before push
-                  → PR Agent pushes updates
-                  → If stalled or conflicting feedback: ESCALATE
-                  → Continue loop
-              → "conflict_resolution":
-                  → Run `scripts/conflict-resolution.sh {wt_path} {base_branch} {feature_branch} {ticket}`
-                  → Handle exit codes per CONFLICT RESOLUTION workflow above
-                  → QA Agent: re-verify (full suite)
-                  → `scripts/check-branch-before-push.sh {worktree}` before push
-                  → PR Agent pushes merge commit
-                  → Continue loop
-              → "dependency_merged":
-                  → Run `scripts/conflict-resolution.sh {wt_path} main {feature_branch} {ticket}`
-                  → QA Agent: re-verify (full suite)
-                  → `scripts/check-branch-before-push.sh {worktree}` before push
-                  → PR Agent pushes merge commit
-                  → Continue loop
-              → "approved":
-                  → If --auto-merge flag set: PR Agent action=merge → `gh pr merge --auto --merge`
-                  → Else: notify human, continue loop
-              → "merged": break loop → POST-MERGE
-              → "escalate": ESCALATE, break loop
-          → If --pause/--stop received: break loop at safe checkpoint
+      → If --auto-merge: PR Agent action=merge → `gh pr merge --auto --merge`
+      → Save initial poll: `scripts/pr-monitor-poll.sh {ticket_id} {pr_number} --save --github-repo={github_repo}`
+      → Log exit, remove PID: `scripts/pid.sh remove {ticket_id}`
+      → EXIT (workflow terminates — external trigger resumes)
+
+  → PR MONITORING RESUME (entered on --resume when overall_status == "pr_monitoring")
+      → Fresh poll: `scripts/pr-monitor-poll.sh {ticket_id} {pr_number} --save --github-repo={github_repo}`
+      → If is_draft: log "PR is draft, skipping", EXIT
+      → If not changed: log "no changes", EXIT
+      → Invoke PR Monitor Agent with full context
+      → Route on action_required:
+          → "none": EXIT
+          → "ci_passed_draft": PR Agent action=ready → if --auto-merge: PR Agent action=merge → EXIT
+          → "address_feedback":
+              → PR Agent set draft
+              → `scripts/check-loop-limit.sh {ticket} pr_feedback 5 increment`
+              → Generate FEEDBACK.json
+              → Developer Agent resolves
+              → QA re-verify
+              → Conflict Resolution re-run
+              → The Critic re-reviews (if code changes)
+              → `scripts/check-branch-before-push.sh {worktree}` before push
+              → PR Agent pushes updates, marks ready
+              → If stalled or conflicting feedback: ESCALATE
+              → EXIT
+          → "conflict_resolution":
+              → PR Agent set draft
+              → Run `scripts/conflict-resolution.sh {wt_path} {base_branch} {feature_branch} {ticket}`
+              → Handle exit codes per CONFLICT RESOLUTION workflow above
+              → QA Agent: re-verify (full suite)
+              → `scripts/check-branch-before-push.sh {worktree}` before push
+              → PR Agent pushes merge commit, marks ready
+              → EXIT
+          → "dependency_merged":
+              → PR Agent set draft
+              → Note: GitHub auto-retargets PR to main when dependency branch is deleted on merge
+              → Run `scripts/conflict-resolution.sh {wt_path} main {feature_branch} {ticket}`
+              → Update PRD.json: base_branch → main, base_is_dependency → false
+              → QA Agent: re-verify (full suite)
+              → `scripts/check-branch-before-push.sh {worktree}` before push
+              → PR Agent pushes merge commit, marks ready
+              → EXIT
+          → "approved":
+              → If --auto-merge: PR Agent action=merge → EXIT
+              → Else: notify human, EXIT
+          → "merged": proceed to POST-MERGE (do not exit)
+          → "escalate": ESCALATE (terminal)
 
   → POST-MERGE (PR Monitor detects state: "MERGED" via gh pr view --json state)
       → If input_source == "jira": Jira Agent: transition ticket to Done
