@@ -16,4 +16,14 @@ Finish the current agent invocation, save PRD.json to `runs/{ticket_id}/`, then 
 
 ## --stop Behaviour
 
-Immediate stop. PRD.json may be mid-update — a task might show `in_progress`. On `--resume`, the Orchestrator detects in-progress tasks and re-runs them from scratch (Developer Agent re-implements, QA re-verifies).
+Immediate stop. Calls `scripts/abort-run.sh <ticket_id> <reason>` to:
+
+1. Close any open draft PR for the ticket
+2. Set PRD.json `overall_status` to `"aborted"`
+3. Write structured escalation to `ESCALATION.json`
+4. Log abort event to run.log
+5. Write run summary with status `"aborted"`
+
+Does NOT remove worktree or delete branches — recoverable work is preserved.
+
+On `--resume`, the Orchestrator detects aborted/in-progress tasks and re-runs them from scratch (Developer Agent re-implements, QA re-verifies).
