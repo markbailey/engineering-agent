@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TEST-1",
+  "title": "Add hello world endpoint",
+  "type": "Story",
+  "requirements": "Create a simple hello world endpoint at /api/hello that returns {\"message\": \"hello world\"}",
+  "acceptance_criteria": ["GET /api/hello returns 200", "Response body is {\"message\": \"hello world\"}"],
+  "repo": "HARNESS"
+}

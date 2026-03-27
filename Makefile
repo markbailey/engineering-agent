@@ -6,7 +6,7 @@ ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 ISSUE := $(word 1,$(ARGS))
 EXTRA := $(wordlist 2,$(words $(ARGS)),$(ARGS))
 
-.PHONY: help start dry-run resume pause stop ready-pr auto-merge address-feedback dashboard dashboard-test
+.PHONY: help start dry-run resume pause stop ready-pr auto-merge address-feedback dashboard dashboard-test test test-scripts test-agent
 .DEFAULT_GOAL := help
 
 help:
@@ -25,6 +25,9 @@ help:
 	@echo "  address-feedback  Address PR feedback including bot comments"
 	@echo "  dashboard         Start the real-time dashboard server"
 	@echo "  dashboard-test    Run dashboard tests"
+	@echo "  test              Run all tests"
+	@echo "  test-scripts      Run script unit tests"
+	@echo "  test-agent        Run agent test (requires FIXTURE=path)"
 	@echo "  help              Show this message"
 	@echo ""
 	@echo "Input:"
@@ -71,6 +74,18 @@ dashboard-test:
 
 address-feedback: _require-issue
 	claude --permission-mode bypassPermissions "/address-feedback $(ISSUE) --include-bots $(EXTRA)"
+
+test: test-scripts
+	@echo "All tests passed"
+
+test-scripts:
+	@echo "Running script tests..."
+	@bash tests/test-scripts.sh
+	@for f in tests/*.test.sh; do echo "Running $$f..."; bash "$$f" || exit 1; done
+
+test-agent:
+	@echo "Running agent test for $(FIXTURE)..."
+	@echo "Note: Agent tests require dry-run mode (not yet implemented)"
 
 _require-issue:
 ifndef ISSUE
