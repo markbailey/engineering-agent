@@ -615,6 +615,31 @@ body::after {
   font-style: italic;
   padding: 4px 0;
 }
+
+/* === LOG FILTER BAR === */
+.log-filter-bar { display: flex; gap: 4px; margin-left: auto; }
+.log-filter-btn {
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 10px;
+  background: transparent; color: var(--text-muted); cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; transition: all 0.15s;
+}
+.log-filter-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+.log-filter-btn.INFO.active { border-color: var(--text-secondary); color: var(--text-secondary); }
+.log-filter-btn.WARN.active { border-color: var(--accent-amber); color: var(--accent-amber); }
+.log-filter-btn.ERROR.active { border-color: var(--accent-red); color: var(--accent-red); }
+.log-filter-btn.EVENT.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+/* === LOG DETAILS TOGGLE === */
+.log-details-toggle {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 11px; padding: 0 4px; margin-left: 4px;
+}
+.log-details-toggle:hover { color: var(--text-primary); }
+.log-details-content {
+  margin: 4px 0 4px 20px; padding: 8px; background: var(--bg-deep);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-size: 11px; color: var(--text-secondary); overflow-x: auto; white-space: pre-wrap;
+}
 </style>
 </head>
 <body>
@@ -661,6 +686,7 @@ body::after {
   const state = {
     runs: new Map(),
     activeRunId: null,
+    logFilters: { INFO: true, WARN: true, ERROR: true, EVENT: true },
     viewFilter: 'active',
   };
 
@@ -989,6 +1015,17 @@ body::after {
     logTitle.textContent = 'Log Stream';
     logHeader.appendChild(logTitle);
 
+    const filterBar = document.createElement('div');
+    filterBar.className = 'log-filter-bar';
+    for (const level of ['INFO', 'WARN', 'ERROR', 'EVENT']) {
+      const btn = document.createElement('button');
+      btn.className = 'log-filter-btn ' + level + (state.logFilters[level] ? ' active' : '');
+      btn.textContent = level;
+      btn.onclick = () => { state.logFilters[level] = !state.logFilters[level]; render(); };
+      filterBar.appendChild(btn);
+    }
+    logHeader.appendChild(filterBar);
+
     const scrollBtn = document.createElement('button');
     scrollBtn.className = 'log-autoscroll' + (autoScroll ? '' : ' paused');
     scrollBtn.textContent = autoScroll ? '\u25BC auto-scroll' : '\u25A0 paused';
@@ -1003,7 +1040,8 @@ body::after {
     logStream.className = 'log-stream';
     logStream.id = 'logStream';
 
-    for (const entry of run.recentLogs) {
+    const filteredLogs = run.recentLogs.filter(e => state.logFilters[e.level]);
+    for (const entry of filteredLogs) {
       logStream.appendChild(createLogEntry(entry));
     }
     logWrapper.appendChild(logStream);
@@ -1053,6 +1091,27 @@ body::after {
     el.appendChild(level);
     el.appendChild(cat);
     el.appendChild(msg);
+
+    if (entry.details && Object.keys(entry.details).length > 0) {
+      const toggle = document.createElement('button');
+      toggle.className = 'log-details-toggle';
+      toggle.textContent = '\u25B8';
+      toggle.onclick = () => {
+        const existing = el.querySelector('.log-details-content');
+        if (existing) {
+          existing.remove();
+          toggle.textContent = '\u25B8';
+        } else {
+          const pre = document.createElement('pre');
+          pre.className = 'log-details-content';
+          pre.textContent = JSON.stringify(entry.details, null, 2);
+          el.appendChild(pre);
+          toggle.textContent = '\u25BE';
+        }
+      };
+      el.appendChild(toggle);
+    }
+
     return el;
   }
 
