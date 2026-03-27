@@ -24,13 +24,9 @@ mkdir -p "$output_dir"
 output_file="$output_dir/SECRETS.json"
 scan_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Locate gitleaks
-GITLEAKS_BIN=""
-if command -v gitleaks &>/dev/null; then
-  GITLEAKS_BIN="gitleaks"
-elif [[ -f "/c/Users/markb/AppData/Local/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe/gitleaks.exe" ]]; then
-  GITLEAKS_BIN="/c/Users/markb/AppData/Local/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe/gitleaks.exe"
-fi
+# Locate gitleaks dynamically (no hardcoded paths)
+GITLEAKS_BIN=$(command -v gitleaks 2>/dev/null || which gitleaks 2>/dev/null || echo "")
+
 
 # If gitleaks not found, hard block (never skip scan)
 if [[ -z "$GITLEAKS_BIN" ]]; then

@@ -51,7 +51,9 @@ fi
 
 # Find agent branches (remote branches starting with agent code)
 stale_branches=()
-cutoff_epoch=$(date -d "-${stale_days} days" +%s 2>/dev/null || date -v-${stale_days}d +%s 2>/dev/null || echo "0")
+# Portable epoch arithmetic: current epoch minus stale_days in seconds
+current_epoch=$(date +%s)
+cutoff_epoch=$(( current_epoch - stale_days * 86400 ))
 
 while IFS= read -r ref; do
   [[ -z "$ref" ]] && continue
