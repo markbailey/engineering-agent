@@ -60,10 +60,26 @@ if [[ $guard_exit -ne 0 ]]; then
   echo "Regression guard found issues"
 fi
 
-# Step 3: Orphan check
+# Step 3: Orphan check (prefer TS-aware check if available)
 echo "--- Step 3: Orphan Check ---"
-orphan_json=$("$SCRIPT_DIR/orphan-check.sh" "$wt_path" "$base_branch" 2>/dev/null)
-orphan_exit=$?
+orphan_json=""
+orphan_exit=0
+
+if [[ -f "$wt_path/tsconfig.json" && -f "$SCRIPT_DIR/orphan-check-ts.js" ]]; then
+  echo "TS project detected — trying orphan-check-ts.js"
+  orphan_json=$(node "$SCRIPT_DIR/orphan-check-ts.js" "$wt_path" "$base_branch" 2>/dev/null)
+  orphan_exit=$?
+  if [[ $orphan_exit -ne 0 || -z "$orphan_json" ]]; then
+    echo "TS orphan check failed or empty — falling back to grep-based check"
+    orphan_json=""
+    orphan_exit=0
+  fi
+fi
+
+if [[ -z "$orphan_json" ]]; then
+  orphan_json=$("$SCRIPT_DIR/orphan-check.sh" "$wt_path" "$base_branch" 2>/dev/null)
+  orphan_exit=$?
+fi
 
 if [[ $orphan_exit -ne 0 ]]; then
   echo "Orphan check found issues"

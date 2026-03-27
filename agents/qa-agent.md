@@ -80,8 +80,18 @@ Run in order. Stop at first failure:
 1. **tsc** — `tsc --noEmit`. Fail = back to Developer Agent.
 2. **lint** — `eslint .` (no --fix). Fail = back to Developer Agent.
 3. **formatting** — `prettier --check .`. Fail = back to Developer Agent (rare after auto-fix).
-4. **unit tests** — project test command. Fail = back to Developer Agent.
-5. **integration tests** — only for `full_suite`, `post_conflict`, `post_feedback` scopes. Fail = back to Developer Agent.
+4. **unit tests** — project test command. On failure, check flaky registry before reporting (see below). Fail = back to Developer Agent.
+5. **integration tests** — only for `full_suite`, `post_conflict`, `post_feedback` scopes. On failure, check flaky registry before reporting (see below). Fail = back to Developer Agent.
+
+### Flaky Test Awareness
+
+When a test fails (unit or integration), before reporting failure:
+
+1. Run `scripts/flaky-test.sh check "<test_name>" "<repo>"` for each failing test.
+2. If `{"flaky": true}`: log the flaky test, exclude from failure report, continue pipeline.
+3. If `{"flaky": false}`: treat as real failure, back to Developer Agent.
+4. If ALL failures are flaky: set `overall: "pass"` with `flaky_tests_skipped` count in output.
+5. Record new flaky detections: if a test fails but is unrelated to changed files (not in PRD.json `files_affected`), run `scripts/flaky-test.sh record "<test_name>" "<repo>" --file <test_file>` to update the registry for future runs.
 
 ### Commit Message Validation
 
