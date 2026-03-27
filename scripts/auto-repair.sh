@@ -14,6 +14,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/flock.sh"
 AGENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 KB_FILE="$AGENT_ROOT/REPAIR_KNOWLEDGE.json"
 RUNS_DIR="$AGENT_ROOT/runs"
@@ -84,7 +85,7 @@ print()
       exit 1
     fi
 
-    python3 -c "
+    with_lock "$KB_FILE" python3 -c "
 import json,sys
 from datetime import datetime, timezone
 
@@ -167,7 +168,7 @@ print()
 
   promote)
     # No args — promote all entries based on occurrences
-    python3 -c "
+    with_lock "$KB_FILE" python3 -c "
 import json,sys
 from datetime import datetime, timezone
 
@@ -203,7 +204,7 @@ print(json.dumps({'promoted': promoted}))
       exit 1
     fi
 
-    python3 -c "
+    with_lock "$KB_FILE" python3 -c "
 import json,sys
 from datetime import datetime, timezone
 
@@ -246,7 +247,7 @@ else:
       echo '{}' > "$failure_file"
     fi
 
-    python3 -c "
+    with_lock "$failure_file" python3 -c "
 import json,sys
 
 ff = sys.argv[1]
@@ -278,7 +279,7 @@ print(json.dumps({'agent': sys.argv[2], 'operation': sys.argv[3], 'consecutive_f
       exit 0
     fi
 
-    python3 -c "
+    with_lock "$failure_file" python3 -c "
 import json,sys
 
 ff = sys.argv[1]
