@@ -169,22 +169,18 @@ function createDashboardServer(opts = {}) {
   });
 
   let pollTimer;
-  const origListen = server.listen.bind(server);
-  server.listen = function (...args) {
-    pollTimer = setInterval(poll, pollInterval);
+  server.on('listening', () => {
     poll(); // initial scan
-    return origListen(...args);
-  };
+    pollTimer = setInterval(poll, pollInterval);
+  });
 
-  const origClose = server.close.bind(server);
-  server.close = function (cb) {
+  server.on('close', () => {
     clearInterval(pollTimer);
     for (const client of sseClients) {
       try { client.end(); } catch {}
     }
     sseClients.clear();
-    return origClose(cb);
-  };
+  });
 
   return server;
 }
