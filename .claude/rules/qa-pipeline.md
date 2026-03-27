@@ -41,6 +41,10 @@ Auto-fix before reporting. If a tool can fix it, fix it silently and commit. Onl
 | After conflict resolution | 1-6 |
 | After feedback round | 1-6 |
 
+## Toolchain Resolution
+
+QA commands (typecheck, test, lint_fix, install) are resolved per-project from the `toolchain` section in `repos.json` via `scripts/resolve-toolchain.sh`. If a step is not configured or the toolchain section is absent, hardcoded defaults (below) are used. Steps explicitly set to `null` are skipped.
+
 ## Auto-Fixer Configuration
 
 Per-repo defaults for TypeScript/JavaScript:
