@@ -22,6 +22,8 @@ function createDashboardServer(opts = {}) {
 
   /** @type {Map<string, { state: object }>} */
   const runs = new Map();
+  /** @type {Map<string, { mtimeMs: number, data: object }>} */
+  const artifactCache = new Map();
   const tailer = new LogTailer();
   /** @type {Set<http.ServerResponse>} */
   const sseClients = new Set();
@@ -40,22 +42,19 @@ function createDashboardServer(opts = {}) {
 
       // Initialize run entry if new
       if (!runs.has(ticketId)) {
-        runs.set(ticketId, { logs: [], state: null });
+        runs.set(ticketId, { state: null });
       }
 
       const run = runs.get(ticketId);
 
       const prevJson = run.state ? JSON.stringify(run.state) : '';
 
-      // Tail log file
-      const newLines = tailer.tail(logFile);
-      for (const line of newLines) {
-        const entry = parseLogLine(line);
-        if (entry) run.logs.push(entry);
-      }
+      // Read last 50 lines from log file (no accumulation)
+      const rawLines = tailer.tailLast(logFile, 50);
+      const logs = rawLines.map(parseLogLine).filter(Boolean);
 
-      // Rebuild state (cheap — always rebuild to pick up artifact changes)
-      const newState = buildRunState(ticketId, run.logs);
+      // Rebuild state from fresh snapshot
+      const newState = buildRunState(ticketId, logs);
       const artifacts = loadArtifacts(ticketDir);
       run.state = mergeArtifacts(newState, artifacts);
 
@@ -93,6 +92,7 @@ function createDashboardServer(opts = {}) {
 
   function loadArtifacts(ticketDir) {
     const artifacts = {};
+    let changed = false;
     const files = {
       prd: 'PRD.json',
       review: 'REVIEW.json',
@@ -101,14 +101,25 @@ function createDashboardServer(opts = {}) {
       secrets: 'SECRETS.json',
     };
     for (const [key, filename] of Object.entries(files)) {
+      const filePath = path.join(ticketDir, filename);
       try {
-        const content = fs.readFileSync(path.join(ticketDir, filename), 'utf8');
-        artifacts[key] = JSON.parse(content);
+        const stat = fs.statSync(filePath);
+        const cached = artifactCache.get(filePath);
+        if (cached && cached.mtimeMs === stat.mtimeMs) {
+          artifacts[key] = cached.data;
+        } else {
+          const content = fs.readFileSync(filePath, 'utf8');
+          const data = JSON.parse(content);
+          artifactCache.set(filePath, { mtimeMs: stat.mtimeMs, data });
+          artifacts[key] = data;
+          changed = true;
+        }
       } catch {
         // file doesn't exist or invalid JSON — skip
+        artifactCache.delete(filePath);
       }
     }
-    return artifacts;
+    return { artifacts, changed };
   }
 
   function broadcast() {
