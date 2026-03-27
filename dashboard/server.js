@@ -37,9 +37,7 @@ function createDashboardServer(opts = {}) {
     secrets: 'SECRETS.json',
   };
 
-  const indexHtml = loadIndexHtml();
-  const styleCss = loadStaticFile('style.css', 'text/css');
-  const appJs = loadStaticFile('app.js', 'application/javascript');
+  // Static files read fresh on each request (no restart needed during dev)
 
   // --- Polling ---
 
@@ -164,7 +162,7 @@ function createDashboardServer(opts = {}) {
     }
   }
 
-  function loadStaticFile(filename, contentType) {
+  function loadStaticFile(filename) {
     try {
       return fs.readFileSync(path.join(__dirname, filename), 'utf8');
     } catch {
@@ -175,7 +173,7 @@ function createDashboardServer(opts = {}) {
   const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(indexHtml);
+      res.end(loadIndexHtml());
       return;
     }
 
@@ -199,13 +197,13 @@ function createDashboardServer(opts = {}) {
 
     if (req.method === 'GET' && req.url === '/style.css') {
       res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
-      res.end(styleCss);
+      res.end(loadStaticFile('style.css'));
       return;
     }
 
     if (req.method === 'GET' && req.url === '/app.js') {
       res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
-      res.end(appJs);
+      res.end(loadStaticFile('app.js'));
       return;
     }
 
