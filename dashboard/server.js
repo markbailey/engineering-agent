@@ -37,6 +37,8 @@ function createDashboardServer(opts = {}) {
   };
 
   const indexHtml = loadIndexHtml();
+  const styleCss = loadStaticFile('style.css', 'text/css');
+  const appJs = loadStaticFile('app.js', 'application/javascript');
 
   // --- Polling ---
 
@@ -161,6 +163,14 @@ function createDashboardServer(opts = {}) {
     }
   }
 
+  function loadStaticFile(filename, contentType) {
+    try {
+      return fs.readFileSync(path.join(__dirname, filename), 'utf8');
+    } catch {
+      return '';
+    }
+  }
+
   const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -183,6 +193,18 @@ function createDashboardServer(opts = {}) {
       res.write('\n'); // flush headers
       sseClients.add(res);
       req.on('close', () => sseClients.delete(res));
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/style.css') {
+      res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+      res.end(styleCss);
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/app.js') {
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      res.end(appJs);
       return;
     }
 

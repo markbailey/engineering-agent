@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "Bash(bash scripts/parse-args.sh tickets/HARNESS-1.json)",
+      "Bash(bash scripts/pid.sh write HARNESS-1 $PPID)",
+      "Bash(bash scripts/run-log.sh HARNESS-1 INFO startup \"Run started for HARNESS-1 \\(local input, normal mode\\)\")",
+      "Bash(chmod +x scripts/preflight.sh)",
+      "Bash(bash scripts/preflight.sh)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(gh pr:*)",
+      "Bash(for t:*)",
+      "Bash(do)",
+      "Bash(mkdir -p \"runs/$t\")",
+      "Bash(bash scripts/run-log.sh \"$t\" INFO startup \"Run started for $t\")",
+      "Bash(done)"
+    ]
+  }
+}

@@ -79,6 +79,20 @@ describe('Dashboard Server', () => {
     assert.ok(res.body.includes('<!DOCTYPE html>') || res.body.includes('<!doctype html>'));
   });
 
+  it('serves style.css with correct Content-Type', async () => {
+    const res = await fetch(`${baseUrl}/style.css`);
+    assert.equal(res.status, 200);
+    assert.ok(res.headers['content-type'].includes('text/css'));
+    assert.ok(res.body.length > 0);
+  });
+
+  it('serves app.js with correct Content-Type', async () => {
+    const res = await fetch(`${baseUrl}/app.js`);
+    assert.equal(res.status, 200);
+    assert.ok(res.headers['content-type'].includes('application/javascript'));
+    assert.ok(res.body.length > 0);
+  });
+
   it('returns 404 for unknown routes', async () => {
     const res = await fetch(`${baseUrl}/unknown`);
     assert.equal(res.status, 404);
