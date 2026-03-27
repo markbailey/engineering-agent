@@ -35,9 +35,9 @@ resolve_cmd() {
     local result
     result=$("$SCRIPT_DIR/resolve-toolchain.sh" "$project_key" "$step" 2>/dev/null || echo '{"skip":true}')
     local skip
-    skip=$(echo "$result" | node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).skip))" 2>/dev/null || echo "true")
+    skip=$(echo "$result" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(String(JSON.parse(d).skip)))" 2>/dev/null || echo "true")
     if [[ "$skip" == "false" ]]; then
-      echo "$result" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).command)" 2>/dev/null
+      echo "$result" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).command))" 2>/dev/null
       return 0
     fi
     echo "__SKIP__"
