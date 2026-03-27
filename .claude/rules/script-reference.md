@@ -42,3 +42,4 @@
 | `scripts/escalate.sh` | Structured escalation writer — appends to ESCALATION.json, logs, notifies |
 | `scripts/abort-run.sh` | Abort a run: close draft PR, set aborted status, write escalation, summarise |
 | `scripts/cleanup-orphans.sh` | Audit runs + worktrees, clean up orphaned ones (worktree, branches, run dir) |
+| `scripts/dry-run-report.sh` | Generate human-readable dry-run summary from run artifacts |
