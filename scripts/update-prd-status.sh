@@ -18,7 +18,7 @@ ticket_id="$1"
 new_status="$2"
 
 # Validate status
-valid_statuses="pending in_progress review pr_open pr_approved done blocked_secrets escalated"
+valid_statuses="pending in_progress review pr_open pr_monitoring pr_approved done blocked_secrets escalated"
 if ! echo "$valid_statuses" | tr ' ' '\n' | grep -qx "$new_status"; then
   echo "ERROR: Invalid status '$new_status'. Valid: $valid_statuses" >&2
   exit 1
