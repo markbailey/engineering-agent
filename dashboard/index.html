@@ -640,6 +640,11 @@ body::after {
   border: 1px solid var(--border); border-radius: 4px;
   font-size: 11px; color: var(--text-secondary); overflow-x: auto; white-space: pre-wrap;
 }
+.task-progress { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.task-progress-label { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.progress-bar { flex: 1; height: 4px; background: var(--bg-deep); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+.status-elapsed { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
 </style>
 </head>
 <body>
@@ -691,6 +696,21 @@ body::after {
   };
 
   let autoScroll = true;
+  let notificationPermission = 'default';
+  let lastSeenLogCount = new Map();
+
+  document.addEventListener('click', () => {
+    if (notificationPermission === 'default' && 'Notification' in window) {
+      Notification.requestPermission().then(p => { notificationPermission = p; });
+    }
+  }, { once: true });
+
+  function notify(title, body) {
+    if (notificationPermission === 'granted' && document.hidden) {
+      try { new Notification(title, { body, icon: '' }); } catch {}
+    }
+  }
+
   const emptyStateTpl = document.getElementById('emptyState').cloneNode(true);
 
   // --- SSE ---
@@ -753,6 +773,29 @@ body::after {
   // --- Event handling ---
   function handleEvent(event) {
     if (event.type === 'snapshot' && event.data) {
+      // Check for new ERROR logs
+      const prevCount = lastSeenLogCount.get(event.ticketId) || 0;
+      const newLogs = (event.data.recentLogs || []);
+      if (newLogs.length > prevCount) {
+        const newEntries = newLogs.slice(prevCount);
+        for (const entry of newEntries) {
+          if (entry.level === 'ERROR') {
+            notify(event.ticketId + ': Error', entry.msg);
+          }
+        }
+      }
+      lastSeenLogCount.set(event.ticketId, newLogs.length);
+
+      // Check for status transitions
+      const prevRun = state.runs.get(event.ticketId);
+      if (prevRun && prevRun.overallStatus !== event.data.overallStatus) {
+        if (event.data.overallStatus === 'done') {
+          notify(event.ticketId + ': Complete', 'Run finished successfully');
+        } else if (event.data.overallStatus === 'escalated') {
+          notify(event.ticketId + ': Escalated', 'Run needs human attention');
+        }
+      }
+
       state.runs.set(event.ticketId, event.data);
       if (!state.activeRunId && event.data.isActive === state.viewFilter) {
         state.activeRunId = event.ticketId;
@@ -842,6 +885,11 @@ body::after {
   }
 
   function renderMain() {
+    const oldElapsed = document.getElementById('elapsedTime');
+    if (oldElapsed && oldElapsed.dataset.timer) {
+      clearInterval(Number(oldElapsed.dataset.timer));
+    }
+
     const main = document.getElementById('mainContent');
     const empty = document.getElementById('emptyState');
     const banner = document.getElementById('errorBanner');
@@ -920,6 +968,26 @@ body::after {
     statusVal.textContent = run.overallStatus || 'unknown';
     statusBar.appendChild(statusVal);
 
+    if (run.startedAt) {
+      const elapsed = document.createElement('div');
+      elapsed.className = 'status-elapsed';
+      elapsed.id = 'elapsedTime';
+      const updateElapsed = () => {
+        const start = new Date(run.startedAt).getTime();
+        const end = run.isActive === 'active' ? Date.now() : (run.lastActivity ? new Date(run.lastActivity).getTime() : Date.now());
+        const diffMs = end - start;
+        const mins = Math.floor(diffMs / 60000);
+        const secs = Math.floor((diffMs % 60000) / 1000);
+        elapsed.textContent = mins + 'm ' + secs + 's';
+      };
+      updateElapsed();
+      if (run.isActive === 'active') {
+        const timer = setInterval(updateElapsed, 1000);
+        elapsed.dataset.timer = timer;
+      }
+      statusBar.appendChild(elapsed);
+    }
+
     const counters = document.createElement('div');
     counters.className = 'status-counters';
     counters.innerHTML = '<span>Reviews: ' + run.reviewRounds + '</span><span>Feedback: ' + run.feedbackRounds + '</span>';
@@ -968,6 +1036,27 @@ body::after {
     taskSection.appendChild(taskTitle);
 
     if (run.tasks.length > 0) {
+      const verified = run.tasks.filter(t => t.status === 'verified' || t.status === 'complete').length;
+      const total = run.tasks.length;
+
+      const progressWrapper = document.createElement('div');
+      progressWrapper.className = 'task-progress';
+
+      const progressLabel = document.createElement('span');
+      progressLabel.className = 'task-progress-label';
+      progressLabel.textContent = verified + '/' + total + ' verified';
+      progressWrapper.appendChild(progressLabel);
+
+      const progressBar = document.createElement('div');
+      progressBar.className = 'progress-bar';
+      const progressFill = document.createElement('div');
+      progressFill.className = 'progress-fill';
+      progressFill.style.width = (total > 0 ? (verified / total * 100) : 0) + '%';
+      progressBar.appendChild(progressFill);
+      progressWrapper.appendChild(progressBar);
+
+      taskSection.appendChild(progressWrapper);
+
       const taskList = document.createElement('div');
       taskList.className = 'task-list';
       for (const task of run.tasks) {
