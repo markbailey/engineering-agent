@@ -6,7 +6,7 @@ ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 ISSUE := $(word 1,$(ARGS))
 EXTRA := $(wordlist 2,$(words $(ARGS)),$(ARGS))
 
-.PHONY: help start dry-run resume revert pause stop ready-pr auto-merge address-feedback dashboard dashboard-test test test-scripts test-agent
+.PHONY: help start dry-run resume revert pause stop ready-pr auto-merge address-feedback dashboard dashboard-test test test-scripts test-agent clean clean-dry
 .DEFAULT_GOAL := help
 
 help:
@@ -29,6 +29,8 @@ help:
 	@echo "  test              Run all tests"
 	@echo "  test-scripts      Run script unit tests"
 	@echo "  test-agent        Run agent test (requires FIXTURE=path)"
+	@echo "  clean             Clean orphaned runs, worktrees, stale tickets"
+	@echo "  clean-dry         Dry-run clean (report only)"
 	@echo "  help              Show this message"
 	@echo ""
 	@echo "Input:"
@@ -79,6 +81,12 @@ dashboard-test:
 
 address-feedback: _require-issue
 	claude --permission-mode bypassPermissions "/address-feedback $(ISSUE) --include-bots $(EXTRA)"
+
+clean:
+	bash scripts/cleanup-orphans.sh
+
+clean-dry:
+	bash scripts/cleanup-orphans.sh --dry-run
 
 test: test-scripts
 	@echo "All tests passed"

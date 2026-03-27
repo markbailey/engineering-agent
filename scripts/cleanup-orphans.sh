@@ -8,6 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RUNS_DIR="$AGENT_ROOT/runs"
+TICKETS_DIR="$AGENT_ROOT/tickets"
 WORKTREES_BASE="$HOME/.claude/worktrees"
 PROTECTED_BRANCHES=("main" "master" "staging")
 
@@ -42,6 +43,7 @@ done
 cleaned=0
 skipped=0
 errors=0
+cleaned_tickets=()  # track ticket IDs cleaned in runs section
 
 # --- Helpers ---
 
@@ -401,6 +403,8 @@ for ticket in "${tickets[@]}"; do
     orphaned_*)
       reason="${result#orphaned_}"
       echo "[$ticket] ORPHANED ($reason)"
+      # Track ticket as cleaned only if run dir existed (for stale tickets section)
+      [[ -d "$RUNS_DIR/$ticket" ]] && cleaned_tickets+=("$ticket")
       if cleanup_ticket "$ticket"; then
         cleaned=$((cleaned + 1))
       else
@@ -501,6 +505,81 @@ if [[ -d "$WORKTREES_BASE" ]]; then
       fi
       cleaned=$((cleaned + 1))
     done
+  done
+fi
+
+# --- Stale Tickets ---
+
+echo ""
+echo "=== Stale Tickets ==="
+
+if [[ -d "$TICKETS_DIR" ]]; then
+  for ticket_file in "$TICKETS_DIR"/*.json; do
+    [[ -f "$ticket_file" ]] || continue
+    local_ticket_id=$(node -e "const d=require('fs').readFileSync(process.argv[1],'utf8');console.log(JSON.parse(d).ticket_id||'')" "$ticket_file" 2>/dev/null) || continue
+    [[ -n "$local_ticket_id" ]] || continue
+
+    # Filter by --ticket if set
+    if [[ -n "$TARGET_TICKET" && "$local_ticket_id" != "$TARGET_TICKET" ]]; then
+      continue
+    fi
+
+    ticket_label="[$local_ticket_id]"
+    ticket_stale=false
+    stale_reason=""
+
+    # Check if this ticket was already cleaned in runs section (was done/merged)
+    was_cleaned=false
+    for ct in "${cleaned_tickets[@]+"${cleaned_tickets[@]}"}"; do
+      [[ "$ct" == "$local_ticket_id" ]] && { was_cleaned=true; break; }
+    done
+    if $was_cleaned; then
+      ticket_stale=true
+      stale_reason="done"
+    fi
+
+    # Check run dir for PRD status
+    local_prd="$RUNS_DIR/$local_ticket_id/PRD.json"
+    if ! $ticket_stale && [[ -f "$local_prd" ]]; then
+      local_status=$(node -e "const d=require('fs').readFileSync(process.argv[1],'utf8');console.log(JSON.parse(d).overall_status||'')" "$local_prd" 2>/dev/null) || local_status=""
+      case "$local_status" in
+        done)
+          ticket_stale=true
+          stale_reason="done"
+          ;;
+        *)
+          if $FORCE; then
+            ticket_stale=true
+            stale_reason="force"
+          else
+            echo "$ticket_label SKIP — active run ($local_status)"
+            skipped=$((skipped + 1))
+            continue
+          fi
+          ;;
+      esac
+    elif ! $ticket_stale; then
+      # No run dir — check if force
+      if $FORCE; then
+        ticket_stale=true
+        stale_reason="force"
+      else
+        echo "$ticket_label SKIP — unused (no run)"
+        skipped=$((skipped + 1))
+        continue
+      fi
+    fi
+
+    if $ticket_stale; then
+      echo "$ticket_label STALE ($stale_reason)"
+      if $DRY_RUN; then
+        echo "  $ticket_label Would delete ticket file: $(basename "$ticket_file")"
+      else
+        rm -f "$ticket_file"
+        echo "  $ticket_label Deleted ticket file: $(basename "$ticket_file")"
+      fi
+      cleaned=$((cleaned + 1))
+    fi
   done
 fi
 
