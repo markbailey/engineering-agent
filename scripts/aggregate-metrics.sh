@@ -17,24 +17,16 @@ if [[ ! -d "$RUNS_DIR" ]]; then
   exit 1
 fi
 
-# Collect all METRICS.json paths
-metrics_files=()
-for f in "$RUNS_DIR"/*/METRICS.json; do
-  [[ -f "$f" ]] && metrics_files+=("$f")
-done
+# Use python for glob + aggregation (cross-platform path safety)
+python3 - "$RUNS_DIR" <<'PYEOF'
+import json, sys, glob, os
 
-if [[ ${#metrics_files[@]} -eq 0 ]]; then
-  echo '{"total_runs":0,"message":"no metrics files found"}'
-  exit 0
-fi
+runs_dir = sys.argv[1]
+# Glob for all METRICS.json files
+pattern = os.path.join(runs_dir, "*", "METRICS.json")
+files = glob.glob(pattern)
 
-# Pass file list to python via stdin
-printf '%s\n' "${metrics_files[@]}" | python3 - <<'PYEOF'
-import json, sys
-
-files = [line.strip() for line in sys.stdin if line.strip()]
 metrics_list = []
-
 for f in files:
     try:
         with open(f, 'r') as fh:
