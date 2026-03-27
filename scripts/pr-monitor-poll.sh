@@ -1,24 +1,36 @@
 #!/usr/bin/env bash
 # pr-monitor-poll.sh — Lightweight GitHub PR state poller
-# Usage: pr-monitor-poll.sh <ticket_id> <pr_number> [interval]
-# Output: JSON { state, ci_status, reviews_approved, mergeable, is_draft }
+# Usage: pr-monitor-poll.sh <ticket_id> <pr_number> [--github-repo=OWNER/REPO] [interval]
+# Output: JSON { state, ci_status, reviews_approved, reviews_commented, mergeable, is_draft }
 # Designed for cheap polling between full PR Monitor agent invocations.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ $# -lt 2 ]]; then
-  echo '{"error":"Usage: pr-monitor-poll.sh <ticket_id> <pr_number> [interval]"}' >&2
+GITHUB_REPO=""
+POSITIONAL=()
+for arg in "$@"; do
+  case "$arg" in
+    --github-repo=*) GITHUB_REPO="${arg#*=}" ;;
+    *) POSITIONAL+=("$arg") ;;
+  esac
+done
+
+if [[ ${#POSITIONAL[@]} -lt 2 ]]; then
+  echo '{"error":"Usage: pr-monitor-poll.sh <ticket_id> <pr_number> [--github-repo=OWNER/REPO] [interval]"}' >&2
   exit 1
 fi
 
-TICKET_ID="$1"
-PR_NUMBER="$2"
-INTERVAL="${3:-${AGENT_PR_MONITOR_INTERVAL:-60}}"
+TICKET_ID="${POSITIONAL[0]}"
+PR_NUMBER="${POSITIONAL[1]}"
+INTERVAL="${POSITIONAL[2]:-${AGENT_PR_MONITOR_INTERVAL:-60}}"
+
+REPO_FLAG=()
+[[ -n "$GITHUB_REPO" ]] && REPO_FLAG=(--repo "$GITHUB_REPO")
 
 # Fetch PR state from GitHub
-pr_json=$("$SCRIPT_DIR/retry-with-backoff.sh" gh pr view "$PR_NUMBER" --json state,statusCheckRollup,reviews,mergeable,isDraft 2>&1) || {
+pr_json=$("$SCRIPT_DIR/retry-with-backoff.sh" --ticket="$TICKET_ID" 3 2000 -- gh pr view "$PR_NUMBER" ${REPO_FLAG[@]+"${REPO_FLAG[@]}"} --json state,statusCheckRollup,reviews,comments,mergeable,isDraft 2>&1) || {
   echo "{\"error\":\"Failed to fetch PR #$PR_NUMBER: $pr_json\"}" >&2
   exit 1
 }
@@ -34,6 +46,7 @@ const ciStatus = anyFailed ? 'fail' : allPassed ? 'pass' : 'pending';
 
 const approvals = (pr.reviews || []).filter(r => r.state === 'APPROVED').length;
 const changesRequested = (pr.reviews || []).some(r => r.state === 'CHANGES_REQUESTED');
+const commented = (pr.reviews || []).filter(r => r.state === 'COMMENTED').length;
 
 console.log(JSON.stringify({
   pr_number: ${PR_NUMBER},
@@ -43,6 +56,7 @@ console.log(JSON.stringify({
   ci_checks_passed: ciChecks.filter(c => c.conclusion === 'SUCCESS').length,
   ci_checks_failed: ciChecks.filter(c => c.conclusion === 'FAILURE').length,
   reviews_approved: approvals,
+  reviews_commented: commented,
   changes_requested: changesRequested,
   mergeable: pr.mergeable || 'UNKNOWN',
   is_draft: pr.isDraft || false,

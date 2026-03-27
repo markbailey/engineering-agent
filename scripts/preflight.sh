@@ -109,6 +109,9 @@ if [[ -n "$PROJECT_KEY" && -f "$REPOS_JSON" ]]; then
     else process.exit(1);
   " "$REPOS_JSON" "$PROJECT_KEY" 2>/dev/null) || repo_path=""
 
+  # Expand leading tilde to $HOME
+  repo_path="${repo_path/#\~/$HOME}"
+
   if [[ -z "$repo_path" ]]; then
     add_check "target_repo" "fail" "Project key $PROJECT_KEY not found in repos.json"
   elif [[ ! -d "$repo_path" ]]; then
@@ -124,7 +127,8 @@ fi
 
 # 8. Jira reachable
 if [[ -n "${JIRA_URL:-}" ]]; then
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$JIRA_URL" 2>/dev/null) || http_code="000"
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$JIRA_URL/rest/api/2/myself" \
+    -H "Authorization: Basic $(printf '%s:%s' "${JIRA_EMAIL:-}" "${JIRA_API_TOKEN:-}" | base64)" 2>/dev/null) || http_code="000"
   if [[ "$http_code" == "200" || "$http_code" == "401" || "$http_code" == "403" ]]; then
     add_check "jira_reachable" "pass"
   else
