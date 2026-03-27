@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "escalation.schema.json",
+  "title": "Escalation",
+  "description": "Structured escalation records for workflow stops and human-attention events.",
+  "type": "object",
+  "required": ["ticket", "escalations"],
+  "additionalProperties": false,
+  "properties": {
+    "ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-\\d+$"
+    },
+    "escalations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "timestamp", "category", "severity", "source_agent", "stage", "context", "resolved"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^esc-\\d{3,}$"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "blocked_dependency",
+              "test_failure",
+              "merge_conflict",
+              "review_stall",
+              "secret_detected",
+              "infra_failure",
+              "contradictory_feedback",
+              "team_conflict",
+              "unknown"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium"]
+          },
+          "source_agent": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "context": {
+            "type": "object",
+            "required": ["summary"],
+            "additionalProperties": false,
+            "properties": {
+              "summary": { "type": "string" },
+              "details": { "type": "string" },
+              "artifacts": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "suggested_action": { "type": "string" }
+            }
+          },
+          "resolved": {
+            "type": "boolean",
+            "default": false
+          },
+          "resolved_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
