@@ -665,6 +665,7 @@ body::after {
   };
 
   let autoScroll = true;
+  let initialLoaded = false;
   const emptyStateTpl = document.getElementById('emptyState').cloneNode(true);
 
   // --- SSE ---
@@ -721,6 +722,7 @@ body::after {
           state.activeRunId = runs[0].ticketId;
         }
       }
+      initialLoaded = true;
       render();
     } catch (err) { console.warn('Initial load failed:', err); }
   }
@@ -738,7 +740,7 @@ body::after {
         state.activeRunId = null;
       }
     }
-    render();
+    if (initialLoaded) render();
   }
 
   // --- Rendering ---
@@ -1069,7 +1071,8 @@ body::after {
   }
 
   // --- Init ---
-  loadInitial().then(() => connect());
+  connect();
+  loadInitial();
 })();
 </script>
 </body>
