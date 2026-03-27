@@ -57,18 +57,18 @@ if [[ -n "$github_repo" ]]; then
   fi
 fi
 
-# 2. Update PRD.json overall_status to "aborted"
+# 2. Write ESCALATION.json via escalate.sh (before PRD update — escalate.sh may set "escalated")
+esc_output=$("$SCRIPT_DIR/escalate.sh" "$ticket_id" "unknown" "high" "orchestrator" "abort" "$reason" 2>/dev/null || echo "")
+if [[ -n "$esc_output" ]]; then
+  escalation_written="true"
+fi
+
+# 3. Update PRD.json overall_status to "aborted" (after escalate.sh, which may set "escalated")
 prd_file="$run_dir/PRD.json"
 if [[ -f "$prd_file" ]]; then
   if "$SCRIPT_DIR/update-prd-status.sh" "$ticket_id" "aborted" >/dev/null 2>&1; then
     prd_updated="true"
   fi
-fi
-
-# 3. Write ESCALATION.json via escalate.sh
-esc_output=$("$SCRIPT_DIR/escalate.sh" "$ticket_id" "unknown" "high" "orchestrator" "abort" "$reason" 2>/dev/null || echo "")
-if [[ -n "$esc_output" ]]; then
-  escalation_written="true"
 fi
 
 # 4. Log EVENT "run aborted" to run.log
