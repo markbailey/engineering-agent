@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics.schema.json",
+  "title": "Run Metrics",
+  "description": "Metrics collected from a single engineering agent run",
+  "type": "object",
+  "required": ["ticket", "started_at", "completed_at", "outcome", "cycle_time_seconds", "stages", "tasks", "qa", "review", "learning"],
+  "additionalProperties": false,
+  "properties": {
+    "ticket": {
+      "type": "string",
+      "pattern": "^[A-Z]+-\\d+$"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "completed_at": {
+      "type": ["string", "null"]
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["completed", "escalated", "aborted"]
+    },
+    "cycle_time_seconds": {
+      "type": ["integer", "null"]
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "started_at", "completed_at", "duration_seconds", "retries", "escalated"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "started_at": { "type": "string" },
+          "completed_at": { "type": ["string", "null"] },
+          "duration_seconds": { "type": ["integer", "null"] },
+          "retries": { "type": "integer" },
+          "escalated": { "type": "boolean" }
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "required": ["total", "completed", "retried", "blocked"],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer" },
+        "completed": { "type": "integer" },
+        "retried": { "type": "integer" },
+        "blocked": { "type": "integer" }
+      }
+    },
+    "qa": {
+      "type": "object",
+      "required": ["auto_fix_runs", "auto_fix_resolved", "test_failures", "test_retries"],
+      "additionalProperties": false,
+      "properties": {
+        "auto_fix_runs": { "type": "integer" },
+        "auto_fix_resolved": { "type": "integer" },
+        "test_failures": { "type": "integer" },
+        "test_retries": { "type": "integer" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["critic_rounds", "pr_feedback_rounds", "escalations"],
+      "additionalProperties": false,
+      "properties": {
+        "critic_rounds": { "type": "integer" },
+        "pr_feedback_rounds": { "type": "integer" },
+        "escalations": { "type": "integer" }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "required": ["standing_instructions_injected", "patterns_detected", "repairs_applied"],
+      "additionalProperties": false,
+      "properties": {
+        "standing_instructions_injected": { "type": "integer" },
+        "patterns_detected": { "type": "integer" },
+        "repairs_applied": { "type": "integer" }
+      }
+    }
+  }
+}
