@@ -70,11 +70,14 @@ while [[ $attempt -lt $max_retries ]]; do
     mult_index=$(( ${#multipliers[@]} - 1 ))
   fi
   delay_ms=$(( base_delay_ms * ${multipliers[$mult_index]} ))
+  # Add jitter: 0-30% random addition to prevent synchronized retries
+  jitter=$((RANDOM % (delay_ms * 30 / 100 + 1)))
+  delay_ms=$((delay_ms + jitter))
   delay_s=$(echo "scale=1; $delay_ms / 1000" | bc 2>/dev/null || echo "$((delay_ms / 1000))")
 
   echo "[retry] Attempt $attempt/$max_retries failed. Retrying in ${delay_s}s..." >&2
   log_retry "WARN" "Attempt $attempt/$max_retries failed, retrying in ${delay_s}s: $cmd_str" \
-    "{\"attempt\":$attempt,\"max_retries\":$max_retries,\"delay_ms\":$delay_ms,\"command\":\"$cmd_str\"}"
+    "{\"attempt\":$attempt,\"max_retries\":$max_retries,\"delay_ms\":$delay_ms,\"jitter_ms\":$jitter,\"command\":\"$cmd_str\"}"
   sleep "$((delay_ms / 1000))"
 done
 
