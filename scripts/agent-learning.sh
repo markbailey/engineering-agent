@@ -10,6 +10,7 @@
 #   lifecycle <ticket_id>                       — process status transitions after a run
 #   escalate                                    — check for persistent patterns, return escalation messages
 #   increment-runs                              — increment runs_since_instruction for all active entries
+#   prune                                       — auto-dismiss entries with effectiveness < 0.5 after 10+ runs
 
 set -euo pipefail
 
@@ -25,7 +26,7 @@ AGENT_LEARNING_PERSISTENCE_THRESHOLD="${AGENT_LEARNING_PERSISTENCE_THRESHOLD:-2}
 
 if [[ $# -lt 1 ]]; then
   echo "Usage: agent-learning.sh <action> [args...]" >&2
-  echo "Actions: gather, filter, write, lifecycle, escalate, increment-runs" >&2
+  echo "Actions: gather, filter, write, lifecycle, escalate, increment-runs, prune" >&2
   exit 1
 fi
 
@@ -242,6 +243,8 @@ else:
         'occurrences': 2,
         'runs_since_instruction': 0,
         'recurrences_after_instruction': 0,
+        'runs_with_instruction': 0,
+        'effectiveness_score': 1.0,
         'status': 'active'
     }
     al['entries'].append(new_entry)
@@ -296,8 +299,16 @@ with open(al_file) as f:
 transitions = []
 
 for entry in al['entries']:
-    if entry['status'] == 'persistent':
-        continue  # already escalated
+    if entry['status'] in ('persistent', 'ineffective'):
+        continue  # already escalated or pruned
+
+    # Compute effectiveness_score
+    rwi = entry.get('runs_with_instruction', 0)
+    if rwi > 0:
+        clean_runs = rwi - entry.get('recurrences_after_instruction', 0)
+        entry['effectiveness_score'] = round(max(0, clean_runs) / rwi, 2)
+    else:
+        entry['effectiveness_score'] = 1.0
 
     if entry['status'] == 'active':
         # Check if should transition to resolved
@@ -401,6 +412,7 @@ incremented = 0
 for entry in al['entries']:
     if entry['status'] in ('active', 'resolved'):
         entry['runs_since_instruction'] += 1
+        entry['runs_with_instruction'] = entry.get('runs_with_instruction', 0) + 1
         incremented += 1
 
 if incremented > 0:
@@ -412,9 +424,53 @@ print(json.dumps({'incremented': incremented}))
 " "$AL_FILE"
     ;;
 
+  prune)
+    # No args — auto-dismiss entries with effectiveness < 0.5 after 10+ runs_with_instruction.
+    # Marks them as "ineffective" so they stop being injected.
+    with_lock "$AL_FILE" python3 -c "
+import json, sys
+from datetime import datetime, timezone
+
+al_file = sys.argv[1]
+
+with open(al_file) as f:
+    al = json.load(f)
+
+pruned = []
+for entry in al['entries']:
+    if entry['status'] in ('persistent', 'ineffective'):
+        continue
+    rwi = entry.get('runs_with_instruction', 0)
+    score = entry.get('effectiveness_score', 1.0)
+    if rwi >= 10 and score < 0.5:
+        old_status = entry['status']
+        entry['status'] = 'ineffective'
+        pruned.append({
+            'id': entry['id'],
+            'agent': entry['agent'],
+            'from': old_status,
+            'runs_with_instruction': rwi,
+            'effectiveness_score': score
+        })
+
+if pruned:
+    al['last_updated'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    with open(al_file, 'w') as f:
+        json.dump(al, f, indent=2)
+
+result = {
+    'pruned_count': len(pruned),
+    'pruned': pruned
+}
+
+json.dump(result, sys.stdout, indent=2)
+print()
+" "$AL_FILE"
+    ;;
+
   *)
     echo "Unknown action: $action" >&2
-    echo "Actions: gather, filter, write, lifecycle, escalate, increment-runs" >&2
+    echo "Actions: gather, filter, write, lifecycle, escalate, increment-runs, prune" >&2
     exit 1
     ;;
 esac
