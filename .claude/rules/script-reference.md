@@ -5,6 +5,7 @@
 | `scripts/parse-args.sh` | Parse invocation input → ticket_id, mode, flags, repo info |
 | `scripts/preflight.sh` | Pre-flight validation: tools, auth, env, repos |
 | `scripts/resolve-repo.sh` | Resolve target repo from ticket ID via repos.json |
+| `scripts/resolve-toolchain.sh` | Resolve toolchain command for a project+step from repos.json |
 | `scripts/generate-branch-name.sh` | Generate branch name from ticket metadata |
 | `scripts/validate-branch-name.sh` | Validate branch name format + employee code |
 | `scripts/discover-non-committable.sh` | Find .env, .pem, etc. to copy into worktrees |

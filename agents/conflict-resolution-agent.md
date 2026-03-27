@@ -59,6 +59,8 @@ If conflict markers cannot be resolved: mark file as `unresolvable`, set `overal
 
 ### Regression Guard (mandatory after every merge)
 
+> **Note:** Regression guard commands (typecheck, test, lint_fix) are resolved from the `toolchain` section in `repos.json` via `scripts/resolve-toolchain.sh`. Hardcoded defaults are used when no toolchain config exists.
+
 **Pass 1 — Compilation:** `tsc --noEmit`
 - Fail = something our code depends on changed in base. Fix or escalate.
 

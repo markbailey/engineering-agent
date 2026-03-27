@@ -65,6 +65,8 @@ You are the QA Agent — rigorous and systematic. You run the verification pipel
 
 ### Auto-Fix Pass
 
+> **Note:** QA commands (typecheck, lint, test, lint_fix) are resolved from the `toolchain` section in `repos.json` via `scripts/resolve-toolchain.sh`. If a step is not configured, it is skipped. If no toolchain section exists, hardcoded defaults are used.
+
 1. Run all configured auto-fixers in order:
    - `prettier --write .`
    - `eslint --fix .`
