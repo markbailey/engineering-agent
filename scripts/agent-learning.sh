@@ -14,6 +14,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/flock.sh"
 AGENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 AL_FILE="$AGENT_ROOT/AGENT_LEARNING.json"
 RUNS_DIR="$AGENT_ROOT/runs"
@@ -178,7 +179,7 @@ print()
       exit 1
     fi
 
-    python3 -c "
+    with_lock "$AL_FILE" python3 -c "
 import json, sys
 from datetime import datetime, timezone
 
@@ -282,7 +283,7 @@ print()
     ticket_id="$1"
     persistence_threshold="$AGENT_LEARNING_PERSISTENCE_THRESHOLD"
 
-    python3 -c "
+    with_lock "$AL_FILE" python3 -c "
 import json, sys
 
 ticket_id = sys.argv[1]
@@ -387,7 +388,7 @@ print()
   increment-runs)
     # No args — increment runs_since_instruction for all active/resolved entries.
     # Call this at the END of every completed run, BEFORE lifecycle.
-    python3 -c "
+    with_lock "$AL_FILE" python3 -c "
 import json, sys
 from datetime import datetime, timezone
 

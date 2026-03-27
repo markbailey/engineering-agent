@@ -9,6 +9,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/flock.sh"
 AGENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RUNS_DIR="$AGENT_ROOT/runs"
 
@@ -52,7 +53,7 @@ case "$action" in
     ;;
   increment)
     new_count=$((current + 1))
-    python3 -c "
+    with_lock "$retry_file" python3 -c "
 import json,sys
 rf, tid, nc = sys.argv[1], sys.argv[2], int(sys.argv[3])
 with open(rf) as f:
@@ -69,7 +70,7 @@ with open(rf, 'w') as f:
     exit 0
     ;;
   reset)
-    python3 -c "
+    with_lock "$retry_file" python3 -c "
 import json,sys
 rf, tid = sys.argv[1], sys.argv[2]
 with open(rf) as f:
