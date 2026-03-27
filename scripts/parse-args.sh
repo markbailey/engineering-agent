@@ -20,6 +20,7 @@ input="$*"
 first_arg=""
 dry_run=false
 resume=false
+revert=false
 ready_pr=false
 pause=false
 stop=false
@@ -29,6 +30,7 @@ for arg in $input; do
   case "$arg" in
     --dry-run)  dry_run=true ;;
     --resume)   resume=true ;;
+    --revert)   revert=true ;;
     --ready-pr) ready_pr=true ;;
     --pause)    pause=true ;;
     --stop)     stop=true ;;
@@ -60,6 +62,8 @@ if $dry_run; then
   mode="dry_run"
 elif $resume; then
   mode="resume"
+elif $revert; then
+  mode="revert"
 fi
 
 # Detect input source: file path if contains . / or \

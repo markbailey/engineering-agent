@@ -71,10 +71,23 @@
           "minimum": 0,
           "description": "Times pattern recurred after instruction was active (2+ triggers persistent escalation)"
         },
+        "runs_with_instruction": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Total runs where this instruction was active (for effectiveness scoring)"
+        },
+        "effectiveness_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Ratio of clean runs to total runs with instruction (1.0 = perfect, 0 = always recurs)"
+        },
         "status": {
           "type": "string",
-          "enum": ["active", "resolved", "persistent"],
-          "description": "active=instruction injected, resolved=5 clean runs, persistent=2+ recurrences after instruction"
+          "enum": ["active", "resolved", "persistent", "ineffective"],
+          "description": "active=instruction injected, resolved=5 clean runs, persistent=2+ recurrences, ineffective=pruned (score<0.5 after 10+ runs)"
         }
       }
     }
