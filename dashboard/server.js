@@ -9,16 +9,18 @@ const { parseLogLine, buildRunState, mergeArtifacts, classifyRunActivity } = req
 
 const DEFAULT_PORT = 3847;
 const DEFAULT_POLL_MS = 1000;
+const DEFAULT_KEEPALIVE_MS = 15000;
 
 /**
  * Create and return an HTTP server (not yet listening).
- * @param {{ runsDir?: string, pollInterval?: number }} opts
+ * @param {{ runsDir?: string, pollInterval?: number, keepaliveInterval?: number }} opts
  */
 function createDashboardServer(opts = {}) {
   const runsDir = opts.runsDir || path.resolve(process.cwd(), 'runs');
   const pollInterval = opts.pollInterval || DEFAULT_POLL_MS;
+  const keepaliveInterval = opts.keepaliveInterval || DEFAULT_KEEPALIVE_MS;
 
-  /** @type {Map<string, { logs: object[], state: object }>} */
+  /** @type {Map<string, { state: object }>} */
   const runs = new Map();
   const tailer = new LogTailer();
   /** @type {Set<http.ServerResponse>} */
@@ -169,13 +171,20 @@ function createDashboardServer(opts = {}) {
   });
 
   let pollTimer;
+  let keepaliveTimer;
   server.on('listening', () => {
     poll(); // initial scan
     pollTimer = setInterval(poll, pollInterval);
+    keepaliveTimer = setInterval(() => {
+      for (const client of sseClients) {
+        try { client.write(':keepalive\n\n'); } catch { sseClients.delete(client); }
+      }
+    }, keepaliveInterval);
   });
 
   server.on('close', () => {
     clearInterval(pollTimer);
+    clearInterval(keepaliveTimer);
     for (const client of sseClients) {
       try { client.end(); } catch {}
     }

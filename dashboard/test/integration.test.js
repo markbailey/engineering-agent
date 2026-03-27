@@ -201,6 +201,46 @@ describe('Dashboard Server', () => {
     assert.equal(data[0].isActive, 'inactive');
   });
 
+  it('sends SSE keepalive comments at configured interval', async () => {
+    // Create server with short keepalive interval for testing
+    const kaServer = createDashboardServer({ runsDir, keepaliveInterval: 200 });
+    const kaBaseUrl = await new Promise((resolve) => {
+      kaServer.listen(0, '127.0.0.1', () => {
+        const { port } = kaServer.address();
+        resolve(`http://127.0.0.1:${port}`);
+      });
+    });
+
+    const received = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        req.destroy();
+        reject(new Error('keepalive timeout'));
+      }, 2000);
+      const req = http.get(`${kaBaseUrl}/events`, (res) => {
+        let buf = '';
+        res.on('data', (chunk) => {
+          buf += chunk;
+          if (buf.includes(':keepalive')) {
+            clearTimeout(timer);
+            req.destroy();
+            resolve(buf);
+          }
+        });
+        res.on('error', () => {});
+      });
+      req.on('error', (err) => {
+        if (err.code !== 'ECONNRESET') {
+          clearTimeout(timer);
+          reject(err);
+        }
+      });
+    });
+
+    await new Promise((resolve) => kaServer.close(resolve));
+
+    assert.ok(received.includes(':keepalive'), 'should receive :keepalive comment');
+  });
+
   it('run with stale pid.json (dead PID) → isActive === inactive', async () => {
     const ticketDir = path.join(runsDir, 'PID-3');
     fs.mkdirSync(ticketDir);
