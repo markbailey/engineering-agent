@@ -99,6 +99,7 @@ function createDashboardServer(opts = {}) {
       prd: 'PRD.json',
       review: 'REVIEW.json',
       feedback: 'FEEDBACK.json',
+      escalation: 'ESCALATION.json',
       conflict: 'CONFLICT.json',
       secrets: 'SECRETS.json',
     };
