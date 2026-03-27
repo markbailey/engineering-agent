@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "flaky-tests.schema.json",
+  "title": "Flaky Test Registry",
+  "description": "Per-repo registry of known flaky tests for CI-aware retry decisions",
+  "type": "object",
+  "required": ["version", "last_updated", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flaky_entry" }
+    }
+  },
+  "$defs": {
+    "flaky_entry": {
+      "type": "object",
+      "required": ["id", "test_name", "file", "repo", "first_seen", "last_seen", "occurrences", "status", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^flaky-\\d{3,}$",
+          "description": "Unique identifier (flaky-NNN pattern)"
+        },
+        "test_name": {
+          "type": "string",
+          "description": "Full test name or pattern"
+        },
+        "file": {
+          "type": ["string", "null"],
+          "description": "Test file path, if known"
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository name"
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "occurrences": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "resolved", "permanent"]
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
