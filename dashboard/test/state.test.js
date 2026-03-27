@@ -139,31 +139,31 @@ describe('mergeArtifacts', () => {
 });
 
 describe('classifyRunActivity', () => {
-  it('returns inactive for terminal status done even with pidAlive', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'done' }, true), 'inactive');
+  it('returns false for terminal status done even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'done' }, true), false);
   });
 
-  it('returns inactive for terminal status escalated even with pidAlive', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'escalated' }, true), 'inactive');
+  it('returns false for terminal status escalated even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'escalated' }, true), false);
   });
 
-  it('returns inactive for terminal status blocked_secrets even with pidAlive', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'blocked_secrets' }, true), 'inactive');
+  it('returns false for terminal status blocked_secrets even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'blocked_secrets' }, true), false);
   });
 
-  it('returns active for non-terminal status with pidAlive true', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, true), 'active');
+  it('returns true for non-terminal status with pidAlive true', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, true), true);
   });
 
-  it('returns inactive for non-terminal status with pidAlive false', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, false), 'inactive');
+  it('returns false for non-terminal status with pidAlive false', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, false), false);
   });
 
-  it('returns active for null overallStatus with pidAlive true', () => {
-    assert.equal(classifyRunActivity({ overallStatus: null }, true), 'active');
+  it('returns true for null overallStatus with pidAlive true', () => {
+    assert.equal(classifyRunActivity({ overallStatus: null }, true), true);
   });
 
-  it('returns inactive for null overallStatus with pidAlive false', () => {
-    assert.equal(classifyRunActivity({ overallStatus: null }, false), 'inactive');
+  it('returns false for null overallStatus with pidAlive false', () => {
+    assert.equal(classifyRunActivity({ overallStatus: null }, false), false);
   });
 });

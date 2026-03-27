@@ -167,7 +167,7 @@ describe('Dashboard Server', () => {
     assert.equal(data[0].artifacts.hasPrd, true);
   });
 
-  it('run with valid pid.json (current process PID) → isActive === active', async () => {
+  it('run with valid pid.json (current process PID) → isActive === true', async () => {
     const ticketDir = path.join(runsDir, 'PID-1');
     fs.mkdirSync(ticketDir);
     fs.writeFileSync(
@@ -183,10 +183,10 @@ describe('Dashboard Server', () => {
 
     const res = await fetch(`${baseUrl}/api/runs`);
     const data = JSON.parse(res.body);
-    assert.equal(data[0].isActive, 'active');
+    assert.equal(data[0].isActive, true);
   });
 
-  it('run with no pid.json → isActive === inactive', async () => {
+  it('run with no pid.json → isActive === false', async () => {
     const ticketDir = path.join(runsDir, 'PID-2');
     fs.mkdirSync(ticketDir);
     fs.writeFileSync(
@@ -198,7 +198,7 @@ describe('Dashboard Server', () => {
 
     const res = await fetch(`${baseUrl}/api/runs`);
     const data = JSON.parse(res.body);
-    assert.equal(data[0].isActive, 'inactive');
+    assert.equal(data[0].isActive, false);
   });
 
   it('sends SSE keepalive comments at configured interval', async () => {
@@ -277,7 +277,7 @@ describe('Dashboard Server', () => {
     assert.equal(data[0].title, 'Updated', 'should re-read after mtime change');
   });
 
-  it('run with stale pid.json (dead PID) → isActive === inactive', async () => {
+  it('run with stale pid.json (dead PID) → isActive === false', async () => {
     const ticketDir = path.join(runsDir, 'PID-3');
     fs.mkdirSync(ticketDir);
     fs.writeFileSync(
@@ -293,6 +293,6 @@ describe('Dashboard Server', () => {
 
     const res = await fetch(`${baseUrl}/api/runs`);
     const data = JSON.parse(res.body);
-    assert.equal(data[0].isActive, 'inactive');
+    assert.equal(data[0].isActive, false);
   });
 });

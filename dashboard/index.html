@@ -661,7 +661,7 @@ body::after {
   const state = {
     runs: new Map(),
     activeRunId: null,
-    viewFilter: 'active',
+    viewFilter: true,
   };
 
   let autoScroll = true;
@@ -712,11 +712,11 @@ body::after {
         state.runs.set(run.ticketId, run);
       }
       if (runs.length > 0 && !state.activeRunId) {
-        const firstActive = runs.find(r => r.isActive === 'active');
+        const firstActive = runs.find(r => r.isActive);
         if (firstActive) {
           state.activeRunId = firstActive.ticketId;
         } else {
-          state.viewFilter = 'inactive';
+          state.viewFilter = false;
           state.activeRunId = runs[0].ticketId;
         }
       }
@@ -769,7 +769,7 @@ body::after {
     let activeCount = 0;
     let inactiveCount = 0;
     for (const [, run] of state.runs) {
-      if (run.isActive === 'active') activeCount++;
+      if (run.isActive) activeCount++;
       else inactiveCount++;
     }
 
@@ -777,14 +777,14 @@ body::after {
     toggle.className = 'view-toggle';
 
     const activeBtn = document.createElement('button');
-    activeBtn.className = 'view-toggle-btn' + (state.viewFilter === 'active' ? ' selected' : '');
+    activeBtn.className = 'view-toggle-btn' + (state.viewFilter === true ? ' selected' : '');
     activeBtn.innerHTML = 'Active<span class="view-toggle-count">' + activeCount + '</span>';
-    activeBtn.onclick = () => { state.viewFilter = 'active'; render(); };
+    activeBtn.onclick = () => { state.viewFilter = true; render(); };
 
     const inactiveBtn = document.createElement('button');
-    inactiveBtn.className = 'view-toggle-btn' + (state.viewFilter === 'inactive' ? ' selected' : '');
+    inactiveBtn.className = 'view-toggle-btn' + (state.viewFilter === false ? ' selected' : '');
     inactiveBtn.innerHTML = 'Inactive<span class="view-toggle-count">' + inactiveCount + '</span>';
-    inactiveBtn.onclick = () => { state.viewFilter = 'inactive'; render(); };
+    inactiveBtn.onclick = () => { state.viewFilter = false; render(); };
 
     toggle.appendChild(activeBtn);
     toggle.appendChild(inactiveBtn);
@@ -826,7 +826,7 @@ body::after {
       const placeholder = emptyStateTpl.cloneNode(true);
       placeholder.removeAttribute('id');
       if (state.runs.size > 0) {
-        placeholder.querySelector('div:nth-child(2)').textContent = 'no ' + state.viewFilter + ' runs';
+        placeholder.querySelector('div:nth-child(2)').textContent = 'no ' + (state.viewFilter ? 'active' : 'inactive') + ' runs';
         placeholder.querySelector('div:nth-child(3)').textContent = '';
       }
       main.appendChild(placeholder);
