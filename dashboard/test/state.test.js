@@ -118,14 +118,31 @@ describe('mergeArtifacts', () => {
       prd: { title: 'x', overall_status: 'done', tasks: [] },
       review: {},
       feedback: {},
+      escalation: {},
       conflict: {},
       secrets: {},
     });
     assert.equal(merged.artifacts.hasPrd, true);
     assert.equal(merged.artifacts.hasReview, true);
     assert.equal(merged.artifacts.hasFeedback, true);
+    assert.equal(merged.artifacts.hasEscalation, true);
     assert.equal(merged.artifacts.hasConflict, true);
     assert.equal(merged.artifacts.hasSecrets, true);
+  });
+
+  it('stores artifact content for review, feedback, escalation', () => {
+    const state = buildRunState('T-1', []);
+    const reviewData = { issues: [{ severity: 'high', msg: 'missing null check' }] };
+    const feedbackData = { items: [{ file: 'index.js', comment: 'simplify' }] };
+    const escalationData = { category: 'test_failure', severity: 'high' };
+    const merged = mergeArtifacts(state, {
+      review: reviewData,
+      feedback: feedbackData,
+      escalation: escalationData,
+    });
+    assert.deepEqual(merged.reviewContent, reviewData);
+    assert.deepEqual(merged.feedbackContent, feedbackData);
+    assert.deepEqual(merged.escalationContent, escalationData);
   });
 
   it('handles missing PRD gracefully', () => {

@@ -605,3 +605,56 @@ body::after {
   font-style: italic;
   padding: 4px 0;
 }
+
+/* === LOG FILTER BAR === */
+.log-filter-bar { display: flex; gap: 4px; margin-left: auto; }
+.log-filter-btn {
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 10px;
+  background: transparent; color: var(--text-muted); cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; transition: all 0.15s;
+}
+.log-filter-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+.log-filter-btn.INFO.active { border-color: var(--text-secondary); color: var(--text-secondary); }
+.log-filter-btn.WARN.active { border-color: var(--accent-amber); color: var(--accent-amber); }
+.log-filter-btn.ERROR.active { border-color: var(--accent-red); color: var(--accent-red); }
+.log-filter-btn.EVENT.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+/* === LOG DETAILS TOGGLE === */
+.log-details-toggle {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 11px; padding: 0 4px; margin-left: 4px;
+}
+.log-details-toggle:hover { color: var(--text-primary); }
+.log-details-content {
+  margin: 4px 0 4px 20px; padding: 8px; background: var(--bg-deep);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-size: 11px; color: var(--text-secondary); overflow-x: auto; white-space: pre-wrap;
+}
+.task-progress { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.task-progress-label { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.progress-bar { flex: 1; height: 4px; background: var(--bg-deep); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+.status-elapsed { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+.artifact-panel { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.artifact-toggle {
+  display: block; width: 100%; padding: 8px 12px; background: var(--bg-surface);
+  border: none; color: var(--text-primary); cursor: pointer; text-align: left;
+  font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 500;
+}
+.artifact-toggle:hover { background: var(--bg-panel); }
+.artifact-content { padding: 8px 12px; background: var(--bg-deep); }
+.artifact-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.artifact-table th { text-align: left; padding: 4px 6px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+.artifact-table td { padding: 4px 6px; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.05)); }
+.sev-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px;
+  font-weight: 600; text-transform: uppercase;
+}
+.sev-badge.critical { background: var(--red); color: #fff; }
+.sev-badge.high { background: rgba(239,68,68,0.2); color: var(--red); }
+.sev-badge.medium { background: rgba(245,158,11,0.2); color: var(--amber); }
+.sev-badge.low { background: rgba(99,102,241,0.2); color: var(--accent); }
+.sev-badge.info { background: rgba(99,102,241,0.1); color: var(--text-secondary); }
+.escalation-entry, .feedback-entry { padding: 6px 0; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.05)); font-size: 12px; }
+.escalation-entry:last-child, .feedback-entry:last-child { border-bottom: none; }
+.feedback-status { color: var(--text-muted); font-size: 11px; }

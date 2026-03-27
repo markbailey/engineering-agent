@@ -5,9 +5,25 @@
   const state = {
     runs: new Map(),
     activeRunId: null,
+    logFilters: { INFO: true, WARN: true, ERROR: true, EVENT: true },
   };
 
   let autoScroll = true;
+  let notificationPermission = 'default';
+  let lastSeenLogCount = new Map();
+
+  document.addEventListener('click', () => {
+    if (notificationPermission === 'default' && 'Notification' in window) {
+      Notification.requestPermission().then(p => { notificationPermission = p; });
+    }
+  }, { once: true });
+
+  function notify(title, body) {
+    if (notificationPermission === 'granted' && document.hidden) {
+      try { new Notification(title, { body, icon: '' }); } catch {}
+    }
+  }
+
   let initialLoaded = false;
   const emptyStateTpl = document.getElementById('emptyState').cloneNode(true);
 
@@ -67,6 +83,29 @@
   // --- Event handling ---
   function handleEvent(event) {
     if (event.type === 'snapshot' && event.data) {
+      // Check for new ERROR logs
+      const prevCount = lastSeenLogCount.get(event.ticketId) || 0;
+      const newLogs = (event.data.recentLogs || []);
+      if (newLogs.length > prevCount) {
+        const newEntries = newLogs.slice(prevCount);
+        for (const entry of newEntries) {
+          if (entry.level === 'ERROR') {
+            notify(event.ticketId + ': Error', entry.msg);
+          }
+        }
+      }
+      lastSeenLogCount.set(event.ticketId, newLogs.length);
+
+      // Check for status transitions
+      const prevRun = state.runs.get(event.ticketId);
+      if (prevRun && prevRun.overallStatus !== event.data.overallStatus) {
+        if (event.data.overallStatus === 'done') {
+          notify(event.ticketId + ': Complete', 'Run finished successfully');
+        } else if (event.data.overallStatus === 'escalated') {
+          notify(event.ticketId + ': Escalated', 'Run needs human attention');
+        }
+      }
+
       state.runs.set(event.ticketId, event.data);
       if (!state.activeRunId) {
         state.activeRunId = event.ticketId;
@@ -111,7 +150,58 @@
     }
   }
 
+  function renderReviewPanel(container, review) {
+    const items = review.issues || review.entries || (Array.isArray(review) ? review : []);
+    if (items.length === 0) { container.textContent = 'No issues'; return; }
+    const table = document.createElement('table');
+    table.className = 'artifact-table';
+    table.innerHTML = '<thead><tr><th>Sev</th><th>File</th><th>Line</th><th>Issue</th><th>Status</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    for (const item of items) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><span class="sev-badge ' + (item.severity || 'low') + '">' + (item.severity || '?') + '</span></td>'
+        + '<td>' + (item.file || '-') + '</td>'
+        + '<td>' + (item.line || '-') + '</td>'
+        + '<td>' + (item.message || item.comment || '-') + '</td>'
+        + '<td>' + (item.status || '-') + '</td>';
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+
+  function renderEscalationPanel(container, escalation) {
+    const items = escalation.entries || (Array.isArray(escalation) ? escalation : []);
+    if (items.length === 0) { container.textContent = 'No escalations'; return; }
+    for (const item of items) {
+      const entry = document.createElement('div');
+      entry.className = 'escalation-entry';
+      entry.innerHTML = '<span class="sev-badge ' + (item.severity || 'medium') + '">' + (item.severity || '?') + '</span> '
+        + '<strong>' + (item.category || '?') + '</strong>: ' + (item.summary || item.message || '-');
+      container.appendChild(entry);
+    }
+  }
+
+  function renderFeedbackPanel(container, feedback) {
+    const items = feedback.items || feedback.entries || (Array.isArray(feedback) ? feedback : []);
+    if (items.length === 0) { container.textContent = 'No feedback'; return; }
+    for (const item of items) {
+      const entry = document.createElement('div');
+      entry.className = 'feedback-entry';
+      entry.innerHTML = '<span class="sev-badge info">' + (item.type || 'comment') + '</span> '
+        + (item.file ? '<code>' + item.file + '</code>: ' : '')
+        + (item.comment || item.body || '-')
+        + (item.status ? ' <span class="feedback-status">[' + item.status + ']</span>' : '');
+      container.appendChild(entry);
+    }
+  }
+
   function renderMain() {
+    const oldElapsed = document.getElementById('elapsedTime');
+    if (oldElapsed && oldElapsed.dataset.timer) {
+      clearInterval(Number(oldElapsed.dataset.timer));
+    }
+
     const main = document.getElementById('mainContent');
     const empty = document.getElementById('emptyState');
     const banner = document.getElementById('errorBanner');
@@ -190,6 +280,26 @@
     statusVal.textContent = run.overallStatus || 'unknown';
     statusBar.appendChild(statusVal);
 
+    if (run.startedAt) {
+      const elapsed = document.createElement('div');
+      elapsed.className = 'status-elapsed';
+      elapsed.id = 'elapsedTime';
+      const updateElapsed = () => {
+        const start = new Date(run.startedAt).getTime();
+        const end = run.isActive === 'active' ? Date.now() : (run.lastActivity ? new Date(run.lastActivity).getTime() : Date.now());
+        const diffMs = end - start;
+        const mins = Math.floor(diffMs / 60000);
+        const secs = Math.floor((diffMs % 60000) / 1000);
+        elapsed.textContent = mins + 'm ' + secs + 's';
+      };
+      updateElapsed();
+      if (run.isActive === 'active') {
+        const timer = setInterval(updateElapsed, 1000);
+        elapsed.dataset.timer = timer;
+      }
+      statusBar.appendChild(elapsed);
+    }
+
     const counters = document.createElement('div');
     counters.className = 'status-counters';
     counters.innerHTML = '<span>Reviews: ' + run.reviewRounds + '</span><span>Feedback: ' + run.feedbackRounds + '</span>';
@@ -238,6 +348,27 @@
     taskSection.appendChild(taskTitle);
 
     if (run.tasks.length > 0) {
+      const verified = run.tasks.filter(t => t.status === 'verified' || t.status === 'complete').length;
+      const total = run.tasks.length;
+
+      const progressWrapper = document.createElement('div');
+      progressWrapper.className = 'task-progress';
+
+      const progressLabel = document.createElement('span');
+      progressLabel.className = 'task-progress-label';
+      progressLabel.textContent = verified + '/' + total + ' verified';
+      progressWrapper.appendChild(progressLabel);
+
+      const progressBar = document.createElement('div');
+      progressBar.className = 'progress-bar';
+      const progressFill = document.createElement('div');
+      progressFill.className = 'progress-fill';
+      progressFill.style.width = (total > 0 ? (verified / total * 100) : 0) + '%';
+      progressBar.appendChild(progressFill);
+      progressWrapper.appendChild(progressBar);
+
+      taskSection.appendChild(progressWrapper);
+
       const taskList = document.createElement('div');
       taskList.className = 'task-list';
       for (const task of run.tasks) {
@@ -273,6 +404,44 @@
     }
     details.appendChild(taskSection);
 
+    // Artifact panels
+    const artifactConfigs = [
+      { key: 'reviewContent', title: 'Review Issues', renderFn: renderReviewPanel },
+      { key: 'escalationContent', title: 'Escalations', renderFn: renderEscalationPanel },
+      { key: 'feedbackContent', title: 'PR Feedback', renderFn: renderFeedbackPanel },
+    ];
+
+    for (const cfg of artifactConfigs) {
+      const content = run[cfg.key];
+      if (!content) continue;
+
+      const panel = document.createElement('div');
+      panel.className = 'artifact-panel';
+
+      const header = document.createElement('button');
+      header.className = 'artifact-toggle';
+      header.textContent = '\u25B8 ' + cfg.title;
+      header.onclick = () => {
+        const body = panel.querySelector('.artifact-content');
+        if (body.style.display === 'none') {
+          body.style.display = '';
+          header.textContent = '\u25BE ' + cfg.title;
+        } else {
+          body.style.display = 'none';
+          header.textContent = '\u25B8 ' + cfg.title;
+        }
+      };
+      panel.appendChild(header);
+
+      const body = document.createElement('div');
+      body.className = 'artifact-content';
+      body.style.display = 'none';
+      cfg.renderFn(body, content);
+      panel.appendChild(body);
+
+      details.appendChild(panel);
+    }
+
     // Log stream
     const logWrapper = document.createElement('div');
     logWrapper.className = 'log-stream-wrapper';
@@ -284,6 +453,17 @@
     logTitle.style.marginBottom = '0';
     logTitle.textContent = 'Log Stream';
     logHeader.appendChild(logTitle);
+
+    const filterBar = document.createElement('div');
+    filterBar.className = 'log-filter-bar';
+    for (const level of ['INFO', 'WARN', 'ERROR', 'EVENT']) {
+      const btn = document.createElement('button');
+      btn.className = 'log-filter-btn ' + level + (state.logFilters[level] ? ' active' : '');
+      btn.textContent = level;
+      btn.onclick = () => { state.logFilters[level] = !state.logFilters[level]; render(); };
+      filterBar.appendChild(btn);
+    }
+    logHeader.appendChild(filterBar);
 
     const scrollBtn = document.createElement('button');
     scrollBtn.className = 'log-autoscroll' + (autoScroll ? '' : ' paused');
@@ -299,7 +479,8 @@
     logStream.className = 'log-stream';
     logStream.id = 'logStream';
 
-    for (const entry of run.recentLogs) {
+    const filteredLogs = run.recentLogs.filter(e => state.logFilters[e.level]);
+    for (const entry of filteredLogs) {
       logStream.appendChild(createLogEntry(entry));
     }
     logWrapper.appendChild(logStream);
@@ -349,6 +530,27 @@
     el.appendChild(level);
     el.appendChild(cat);
     el.appendChild(msg);
+
+    if (entry.details && Object.keys(entry.details).length > 0) {
+      const toggle = document.createElement('button');
+      toggle.className = 'log-details-toggle';
+      toggle.textContent = '\u25B8';
+      toggle.onclick = () => {
+        const existing = el.querySelector('.log-details-content');
+        if (existing) {
+          existing.remove();
+          toggle.textContent = '\u25B8';
+        } else {
+          const pre = document.createElement('pre');
+          pre.className = 'log-details-content';
+          pre.textContent = JSON.stringify(entry.details, null, 2);
+          el.appendChild(pre);
+          toggle.textContent = '\u25BE';
+        }
+      };
+      el.appendChild(toggle);
+    }
+
     return el;
   }
 
