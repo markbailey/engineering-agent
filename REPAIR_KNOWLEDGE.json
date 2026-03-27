@@ -23,9 +23,9 @@
       "failure_reason": "orphan-check scans entire merge diff, flags unrelated base-branch renames/integrations as false positives",
       "error_pattern": "renamed_references.*escalated|disconnected_integrations.*restructured by base",
       "successful_alternative": "Filter orphan-check to only feature-branch files from PRD.json files_affected, ignore base-only changes",
-      "confidence": "low",
-      "occurrences": 1,
-      "last_seen": "2026-03-24T18:28:26Z"
+      "confidence": "high",
+      "occurrences": 3,
+      "last_seen": "2026-03-26T00:00:00Z"
     }
   ]
 }
