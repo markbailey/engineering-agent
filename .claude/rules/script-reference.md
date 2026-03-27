@@ -39,4 +39,6 @@
 | `scripts/run-summary.sh` | Write run summary (stats, counts) to run.log at end of ticket |
 | `scripts/pr-monitor-poll.sh` | Lightweight GitHub PR state poller for monitoring loop |
 | `scripts/agent-learning.sh` | Agent learning system: gather, filter, write, lifecycle, escalate, increment-runs |
+| `scripts/escalate.sh` | Structured escalation writer — appends to ESCALATION.json, logs, notifies |
+| `scripts/abort-run.sh` | Abort a run: close draft PR, set aborted status, write escalation, summarise |
 | `scripts/cleanup-orphans.sh` | Audit runs + worktrees, clean up orphaned ones (worktree, branches, run dir) |
