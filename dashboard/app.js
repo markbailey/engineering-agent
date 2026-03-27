@@ -256,9 +256,15 @@
     const bar = document.getElementById('tabBar');
     bar.innerHTML = '';
 
-    for (const [id, run] of state.runs) {
-      if (!run.isActive) continue;
+    const sorted = [...state.runs.entries()]
+      .filter(([, run]) => run.isActive)
+      .sort((a, b) => {
+        const ta = a[1].startedAt ? new Date(a[1].startedAt).getTime() : 0;
+        const tb = b[1].startedAt ? new Date(b[1].startedAt).getTime() : 0;
+        return tb - ta;
+      });
 
+    for (const [id, run] of sorted) {
       const tab = document.createElement('button');
       tab.className = 'tab' + (id === state.activeRunId ? ' active' : '');
       tab.onclick = () => { state.activeRunId = id; render(); };
