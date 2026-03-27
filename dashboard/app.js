@@ -25,6 +25,8 @@
   }
 
   let initialLoaded = false;
+  let lastRenderedRunId = null;
+  let lastRenderedState = null;
   const emptyStateTpl = document.getElementById('emptyState').cloneNode(true);
 
   // --- SSE ---
@@ -126,7 +128,123 @@
       state.activeRunId = state.runs.keys().next().value;
     }
     renderTabs();
-    renderMain();
+
+    const tabSwitched = state.activeRunId !== lastRenderedRunId;
+    lastRenderedRunId = state.activeRunId;
+
+    if (tabSwitched || !lastRenderedState) {
+      renderMain();
+    } else {
+      renderMainDiff();
+    }
+
+    // Snapshot current state for next comparison
+    const run = state.activeRunId ? state.runs.get(state.activeRunId) : null;
+    if (run) {
+      lastRenderedState = {
+        overallStatus: run.overallStatus,
+        stages: run.stages.map(s => s.id + ':' + s.status),
+        taskHash: JSON.stringify(run.tasks),
+        logCount: run.recentLogs.length,
+        activeAgent: run.activeAgent,
+        reviewRounds: run.reviewRounds,
+        feedbackRounds: run.feedbackRounds,
+        errors: run.errors.length,
+      };
+    } else {
+      lastRenderedState = null;
+    }
+  }
+
+  function renderMainDiff() {
+    const run = state.activeRunId ? state.runs.get(state.activeRunId) : null;
+    if (!run || !lastRenderedState) { renderMain(); return; }
+
+    // Update workflow step statuses
+    const steps = document.querySelectorAll('.step');
+    if (steps.length === run.stages.length) {
+      for (let i = 0; i < run.stages.length; i++) {
+        const newKey = run.stages[i].id + ':' + run.stages[i].status;
+        if (lastRenderedState.stages[i] !== newKey) {
+          steps[i].className = 'step ' + run.stages[i].status;
+          const icon = steps[i].querySelector('.step-icon');
+          if (icon) {
+            if (run.stages[i].status === 'complete') icon.textContent = '\u2713';
+            else if (run.stages[i].status === 'in_progress') icon.textContent = '\u25B8';
+            else if (run.stages[i].status === 'error') icon.textContent = '!';
+            else icon.textContent = '\u00B7';
+          }
+        }
+      }
+    }
+
+    // Update sidebar status
+    const statusVal = document.querySelector('.status-value');
+    if (statusVal && run.overallStatus !== lastRenderedState.overallStatus) {
+      statusVal.className = 'status-value ' + (run.overallStatus || '');
+      statusVal.textContent = run.overallStatus || 'unknown';
+    }
+
+    // Update counters
+    if (run.reviewRounds !== lastRenderedState.reviewRounds || run.feedbackRounds !== lastRenderedState.feedbackRounds) {
+      const counters = document.querySelector('.status-counters');
+      if (counters) counters.innerHTML = '<span>Reviews: ' + run.reviewRounds + '</span><span>Feedback: ' + run.feedbackRounds + '</span>';
+    }
+
+    // Update active agent
+    if (run.activeAgent !== lastRenderedState.activeAgent) {
+      const agentSection = document.querySelector('.detail-section');
+      if (agentSection) {
+        const existing = agentSection.querySelector('.agent-display, .agent-idle');
+        if (existing) existing.remove();
+        if (run.activeAgent) {
+          const agentDisplay = document.createElement('div');
+          agentDisplay.className = 'agent-display';
+          const pulse = document.createElement('div');
+          pulse.className = 'agent-pulse';
+          const name = document.createElement('span');
+          name.className = 'agent-name';
+          name.textContent = run.activeAgent;
+          agentDisplay.appendChild(pulse);
+          agentDisplay.appendChild(name);
+          agentSection.appendChild(agentDisplay);
+        } else {
+          const idle = document.createElement('div');
+          idle.className = 'agent-idle';
+          idle.textContent = 'idle';
+          agentSection.appendChild(idle);
+        }
+      }
+    }
+
+    // Task list changed — full re-render
+    if (JSON.stringify(run.tasks) !== lastRenderedState.taskHash) { renderMain(); return; }
+
+    // Update error banner
+    const banner = document.getElementById('errorBanner');
+    if (run.errors.length > 0 && run.errors.length !== lastRenderedState.errors) {
+      document.getElementById('errorBannerText').textContent = run.errors[run.errors.length - 1].msg;
+      banner.classList.add('visible');
+    } else if (run.errors.length === 0 && lastRenderedState.errors > 0) {
+      banner.classList.remove('visible');
+    }
+
+    // Incremental log stream update
+    const logStream = document.getElementById('logStream');
+    if (logStream && run.recentLogs.length !== lastRenderedState.logCount) {
+      const filteredLogs = run.recentLogs.filter(e => state.logFilters[e.level]);
+      const currentEntries = logStream.querySelectorAll('.log-entry');
+      const currentCount = currentEntries.length;
+      const newCount = filteredLogs.length;
+      if (newCount > currentCount) {
+        const newEntries = filteredLogs.slice(currentCount);
+        for (const entry of newEntries) logStream.appendChild(createLogEntry(entry));
+      } else if (newCount < currentCount) {
+        const toRemove = currentCount - newCount;
+        for (let i = 0; i < toRemove && logStream.firstChild; i++) logStream.removeChild(logStream.firstChild);
+      }
+      if (autoScroll) requestAnimationFrame(() => { logStream.scrollTop = logStream.scrollHeight; });
+    }
   }
 
   function renderTabs() {
@@ -286,14 +404,14 @@
       elapsed.id = 'elapsedTime';
       const updateElapsed = () => {
         const start = new Date(run.startedAt).getTime();
-        const end = run.isActive === 'active' ? Date.now() : (run.lastActivity ? new Date(run.lastActivity).getTime() : Date.now());
+        const end = run.isActive ? Date.now() : (run.lastActivity ? new Date(run.lastActivity).getTime() : Date.now());
         const diffMs = end - start;
         const mins = Math.floor(diffMs / 60000);
         const secs = Math.floor((diffMs % 60000) / 1000);
         elapsed.textContent = mins + 'm ' + secs + 's';
       };
       updateElapsed();
-      if (run.isActive === 'active') {
+      if (run.isActive) {
         const timer = setInterval(updateElapsed, 1000);
         elapsed.dataset.timer = timer;
       }
