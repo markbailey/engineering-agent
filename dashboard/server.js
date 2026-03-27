@@ -5,7 +5,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { LogTailer, scanRunsDir } = require('./lib/watcher.js');
-const { parseLogLine, buildRunState, mergeArtifacts, classifyRunActivity } = require('./lib/state.js');
+const { parseLogLine, buildRunState, mergeArtifacts, classifyRunActivity, classifyRunTerminal } = require('./lib/state.js');
 
 const DEFAULT_PORT = 3847;
 const DEFAULT_POLL_MS = 1000;
@@ -28,7 +28,16 @@ function createDashboardServer(opts = {}) {
   /** @type {Set<http.ServerResponse>} */
   const sseClients = new Set();
 
-  const indexHtml = loadIndexHtml();
+  const ARTIFACT_FILES = {
+    prd: 'PRD.json',
+    review: 'REVIEW.json',
+    feedback: 'FEEDBACK.json',
+    escalation: 'ESCALATION.json',
+    conflict: 'CONFLICT.json',
+    secrets: 'SECRETS.json',
+  };
+
+  // Static files read fresh on each request (no restart needed during dev)
 
   // --- Polling ---
 
@@ -61,6 +70,7 @@ function createDashboardServer(opts = {}) {
 
       const pidAlive = checkPidAlive(ticketDir);
       run.state.isActive = classifyRunActivity(run.state, pidAlive);
+      run.state.isTerminal = classifyRunTerminal(run.state);
 
       if (logsChanged || artifactsChanged) {
         run.version++;
@@ -68,9 +78,13 @@ function createDashboardServer(opts = {}) {
       }
     }
 
-    // Remove runs no longer on disk
+    // Remove runs no longer on disk + clean artifact cache
     for (const ticketId of runs.keys()) {
       if (!tickets.includes(ticketId)) {
+        const ticketDir = path.join(runsDir, ticketId);
+        for (const filename of Object.values(ARTIFACT_FILES)) {
+          artifactCache.delete(path.join(ticketDir, filename));
+        }
         runs.delete(ticketId);
         anyChanged = true;
       }
@@ -95,14 +109,7 @@ function createDashboardServer(opts = {}) {
   function loadArtifacts(ticketDir) {
     const artifacts = {};
     let changed = false;
-    const files = {
-      prd: 'PRD.json',
-      review: 'REVIEW.json',
-      feedback: 'FEEDBACK.json',
-      conflict: 'CONFLICT.json',
-      secrets: 'SECRETS.json',
-    };
-    for (const [key, filename] of Object.entries(files)) {
+    for (const [key, filename] of Object.entries(ARTIFACT_FILES)) {
       const filePath = path.join(ticketDir, filename);
       try {
         const stat = fs.statSync(filePath);
@@ -126,16 +133,18 @@ function createDashboardServer(opts = {}) {
 
   function broadcast() {
     const allStates = getAllStates();
+    const failed = [];
     for (const client of sseClients) {
       for (const state of allStates) {
         const event = { type: 'snapshot', ticketId: state.ticketId, data: state };
         try {
           client.write(`data: ${JSON.stringify(event)}\n\n`);
         } catch {
-          sseClients.delete(client);
+          failed.push(client);
         }
       }
     }
+    for (const client of failed) sseClients.delete(client);
   }
 
   function getAllStates() {
@@ -154,10 +163,18 @@ function createDashboardServer(opts = {}) {
     }
   }
 
+  function loadStaticFile(filename) {
+    try {
+      return fs.readFileSync(path.join(__dirname, filename), 'utf8');
+    } catch {
+      return '';
+    }
+  }
+
   const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(indexHtml);
+      res.end(loadIndexHtml());
       return;
     }
 
@@ -176,6 +193,18 @@ function createDashboardServer(opts = {}) {
       res.write('\n'); // flush headers
       sseClients.add(res);
       req.on('close', () => sseClients.delete(res));
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/style.css') {
+      res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+      res.end(loadStaticFile('style.css'));
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/app.js') {
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      res.end(loadStaticFile('app.js'));
       return;
     }
 

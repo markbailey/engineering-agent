@@ -42,7 +42,7 @@ const r = repos.repos[key];
 console.log(JSON.stringify({
   project_key: key,
   repo_name: r.name,
-  repo_path: r.path,
+  repo_path: r.path.replace(/^~/, process.env.HOME),
   github_repo: r.github_repo
 }));
 " "$REPOS_JSON" "$project_key") || exit 1
