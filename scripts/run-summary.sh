@@ -62,12 +62,43 @@ summary_details="$summary_details}"
   "Run complete: $status — $tasks_completed/$tasks_total tasks, $error_count errors, $warn_count warnings" \
   "$summary_details"
 
+# Collect metrics (non-blocking — don't fail summary if metrics collection fails)
+cycle_time_display="n/a"
+escalation_display="0"
+if bash "$SCRIPT_DIR/collect-metrics.sh" "$ticket_id" >/dev/null 2>&1; then
+  metrics_file="$run_dir/METRICS.json"
+  if [[ -f "$metrics_file" ]]; then
+    cycle_time_display=$(python3 -c "
+import json, sys
+m = json.load(open(sys.argv[1]))
+ct = m.get('cycle_time_seconds')
+if ct is not None:
+    h, rem = divmod(ct, 3600)
+    mins, secs = divmod(rem, 60)
+    parts = []
+    if h: parts.append(f'{h}h')
+    if mins: parts.append(f'{mins}m')
+    parts.append(f'{secs}s')
+    print(' '.join(parts))
+else:
+    print('n/a')
+" "$metrics_file" 2>/dev/null || echo "n/a")
+    escalation_display=$(python3 -c "
+import json, sys
+m = json.load(open(sys.argv[1]))
+print(m.get('review', {}).get('escalations', 0))
+" "$metrics_file" 2>/dev/null || echo "0")
+  fi
+fi
+
 # Terminal output
 echo "" >&2
 echo "============ RUN SUMMARY ============" >&2
 echo " Ticket:    $ticket_id" >&2
 echo " Status:    $status" >&2
 echo " Tasks:     $tasks_completed / $tasks_total" >&2
+echo " Cycle:     $cycle_time_display" >&2
+echo " Escalated: $escalation_display" >&2
 echo " Errors:    $error_count" >&2
 echo " Warnings:  $warn_count" >&2
 echo " Events:    $event_count" >&2
