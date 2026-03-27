@@ -9,6 +9,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Source rate limit awareness
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/rate-limit.sh"
+
 # Load .env for employee code
 if [[ -f "$AGENT_ROOT/.env" ]]; then
   # shellcheck disable=SC1091
@@ -60,6 +64,7 @@ if [[ -n "$matching_branches" ]]; then
 fi
 
 # 2. Check open PRs matching ticket ID
+pre_gh_check "$ticket_id"
 gh_args=(pr list --search "$ticket_id" --state open --json number,author,headRefName,title)
 if [[ -n "$github_repo" ]]; then
   gh_args+=(--repo "$github_repo")

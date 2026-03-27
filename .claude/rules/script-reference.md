@@ -14,6 +14,7 @@
 | `scripts/worktree-cleanup.sh` | Remove worktree + branch after merge |
 | `scripts/worktree-scan.sh` | Detect orphaned worktrees |
 | `scripts/validate-commit-msg.sh` | Validate Conventional Commits format |
+| `scripts/rate-limit.sh` | GitHub API rate limit awareness — pre-flight check before gh calls |
 | `scripts/retry-with-backoff.sh` | Exponential backoff retry wrapper |
 | `scripts/record-agent-versions.sh` | Capture agent prompt versions |
 | `scripts/validate-schemas.js` | Validate JSON schemas and data files |
