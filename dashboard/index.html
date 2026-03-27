@@ -671,7 +671,7 @@ body::after {
   let evtSource = null;
 
   function connect() {
-    if (evtSource) { try { evtSource.close(); } catch {} }
+    if (evtSource) { try { evtSource.close(); } catch (err) { console.warn('EventSource close error:', err); } }
 
     evtSource = new EventSource('/events');
 
@@ -683,10 +683,11 @@ body::after {
       try {
         const event = JSON.parse(e.data);
         handleEvent(event);
-      } catch {}
+      } catch (err) { console.warn('SSE parse error:', err); }
     };
 
-    evtSource.onerror = () => {
+    evtSource.onerror = (err) => {
+      console.warn('EventSource error:', err);
       setConnected(false);
     };
   }
@@ -721,7 +722,7 @@ body::after {
         }
       }
       render();
-    } catch {}
+    } catch (err) { console.warn('Initial load failed:', err); }
   }
 
   // --- Event handling ---
