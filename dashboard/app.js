@@ -75,7 +75,8 @@
         state.runs.set(run.ticketId, run);
       }
       if (runs.length > 0 && !state.activeRunId) {
-        state.activeRunId = runs[0].ticketId;
+        const firstActive = runs.find(r => r.isActive);
+        if (firstActive) state.activeRunId = firstActive.ticketId;
       }
       initialLoaded = true;
       render();
@@ -109,7 +110,7 @@
       }
 
       state.runs.set(event.ticketId, event.data);
-      if (!state.activeRunId) {
+      if (!state.activeRunId && event.data.isActive) {
         state.activeRunId = event.ticketId;
       }
     } else if (event.type === 'remove') {
@@ -123,9 +124,13 @@
 
   // --- Rendering ---
   function render() {
-    // If activeRunId is gone, pick first available
-    if (state.runs.size > 0 && !state.runs.has(state.activeRunId)) {
-      state.activeRunId = state.runs.keys().next().value;
+    // If activeRunId is gone or inactive, pick first active run
+    const currentRun = state.runs.get(state.activeRunId);
+    if (!currentRun || !currentRun.isActive) {
+      state.activeRunId = null;
+      for (const [id, run] of state.runs) {
+        if (run.isActive) { state.activeRunId = id; break; }
+      }
     }
     renderTabs();
 
@@ -252,6 +257,8 @@
     bar.innerHTML = '';
 
     for (const [id, run] of state.runs) {
+      if (!run.isActive) continue;
+
       const tab = document.createElement('button');
       tab.className = 'tab' + (id === state.activeRunId ? ' active' : '');
       tab.onclick = () => { state.activeRunId = id; render(); };
