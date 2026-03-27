@@ -645,6 +645,29 @@ body::after {
 .progress-bar { flex: 1; height: 4px; background: var(--bg-deep); border-radius: 2px; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
 .status-elapsed { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+.artifact-panel { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.artifact-toggle {
+  display: block; width: 100%; padding: 8px 12px; background: var(--bg-surface);
+  border: none; color: var(--text-primary); cursor: pointer; text-align: left;
+  font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 500;
+}
+.artifact-toggle:hover { background: var(--bg-panel); }
+.artifact-content { padding: 8px 12px; background: var(--bg-deep); }
+.artifact-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.artifact-table th { text-align: left; padding: 4px 6px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+.artifact-table td { padding: 4px 6px; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.05)); }
+.sev-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px;
+  font-weight: 600; text-transform: uppercase;
+}
+.sev-badge.critical { background: var(--red); color: #fff; }
+.sev-badge.high { background: rgba(239,68,68,0.2); color: var(--red); }
+.sev-badge.medium { background: rgba(245,158,11,0.2); color: var(--amber); }
+.sev-badge.low { background: rgba(99,102,241,0.2); color: var(--accent); }
+.sev-badge.info { background: rgba(99,102,241,0.1); color: var(--text-secondary); }
+.escalation-entry, .feedback-entry { padding: 6px 0; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.05)); font-size: 12px; }
+.escalation-entry:last-child, .feedback-entry:last-child { border-bottom: none; }
+.feedback-status { color: var(--text-muted); font-size: 11px; }
 </style>
 </head>
 <body>
@@ -884,6 +907,52 @@ body::after {
     }
   }
 
+  function renderReviewPanel(container, review) {
+    const items = review.issues || review.entries || (Array.isArray(review) ? review : []);
+    if (items.length === 0) { container.textContent = 'No issues'; return; }
+    const table = document.createElement('table');
+    table.className = 'artifact-table';
+    table.innerHTML = '<thead><tr><th>Sev</th><th>File</th><th>Line</th><th>Issue</th><th>Status</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    for (const item of items) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><span class="sev-badge ' + (item.severity || 'low') + '">' + (item.severity || '?') + '</span></td>'
+        + '<td>' + (item.file || '-') + '</td>'
+        + '<td>' + (item.line || '-') + '</td>'
+        + '<td>' + (item.message || item.comment || '-') + '</td>'
+        + '<td>' + (item.status || '-') + '</td>';
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+
+  function renderEscalationPanel(container, escalation) {
+    const items = escalation.entries || (Array.isArray(escalation) ? escalation : []);
+    if (items.length === 0) { container.textContent = 'No escalations'; return; }
+    for (const item of items) {
+      const entry = document.createElement('div');
+      entry.className = 'escalation-entry';
+      entry.innerHTML = '<span class="sev-badge ' + (item.severity || 'medium') + '">' + (item.severity || '?') + '</span> '
+        + '<strong>' + (item.category || '?') + '</strong>: ' + (item.summary || item.message || '-');
+      container.appendChild(entry);
+    }
+  }
+
+  function renderFeedbackPanel(container, feedback) {
+    const items = feedback.items || feedback.entries || (Array.isArray(feedback) ? feedback : []);
+    if (items.length === 0) { container.textContent = 'No feedback'; return; }
+    for (const item of items) {
+      const entry = document.createElement('div');
+      entry.className = 'feedback-entry';
+      entry.innerHTML = '<span class="sev-badge info">' + (item.type || 'comment') + '</span> '
+        + (item.file ? '<code>' + item.file + '</code>: ' : '')
+        + (item.comment || item.body || '-')
+        + (item.status ? ' <span class="feedback-status">[' + item.status + ']</span>' : '');
+      container.appendChild(entry);
+    }
+  }
+
   function renderMain() {
     const oldElapsed = document.getElementById('elapsedTime');
     if (oldElapsed && oldElapsed.dataset.timer) {
@@ -1091,6 +1160,44 @@ body::after {
       taskSection.appendChild(noData);
     }
     details.appendChild(taskSection);
+
+    // Artifact panels
+    const artifactConfigs = [
+      { key: 'reviewContent', title: 'Review Issues', renderFn: renderReviewPanel },
+      { key: 'escalationContent', title: 'Escalations', renderFn: renderEscalationPanel },
+      { key: 'feedbackContent', title: 'PR Feedback', renderFn: renderFeedbackPanel },
+    ];
+
+    for (const cfg of artifactConfigs) {
+      const content = run[cfg.key];
+      if (!content) continue;
+
+      const panel = document.createElement('div');
+      panel.className = 'artifact-panel';
+
+      const header = document.createElement('button');
+      header.className = 'artifact-toggle';
+      header.textContent = '\u25B8 ' + cfg.title;
+      header.onclick = () => {
+        const body = panel.querySelector('.artifact-content');
+        if (body.style.display === 'none') {
+          body.style.display = '';
+          header.textContent = '\u25BE ' + cfg.title;
+        } else {
+          body.style.display = 'none';
+          header.textContent = '\u25B8 ' + cfg.title;
+        }
+      };
+      panel.appendChild(header);
+
+      const body = document.createElement('div');
+      body.className = 'artifact-content';
+      body.style.display = 'none';
+      cfg.renderFn(body, content);
+      panel.appendChild(body);
+
+      details.appendChild(panel);
+    }
 
     // Log stream
     const logWrapper = document.createElement('div');
