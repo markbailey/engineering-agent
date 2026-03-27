@@ -28,6 +28,14 @@ function createDashboardServer(opts = {}) {
   /** @type {Set<http.ServerResponse>} */
   const sseClients = new Set();
 
+  const ARTIFACT_FILES = {
+    prd: 'PRD.json',
+    review: 'REVIEW.json',
+    feedback: 'FEEDBACK.json',
+    conflict: 'CONFLICT.json',
+    secrets: 'SECRETS.json',
+  };
+
   const indexHtml = loadIndexHtml();
 
   // --- Polling ---
@@ -68,9 +76,13 @@ function createDashboardServer(opts = {}) {
       }
     }
 
-    // Remove runs no longer on disk
+    // Remove runs no longer on disk + clean artifact cache
     for (const ticketId of runs.keys()) {
       if (!tickets.includes(ticketId)) {
+        const ticketDir = path.join(runsDir, ticketId);
+        for (const filename of Object.values(ARTIFACT_FILES)) {
+          artifactCache.delete(path.join(ticketDir, filename));
+        }
         runs.delete(ticketId);
         anyChanged = true;
       }
@@ -95,14 +107,7 @@ function createDashboardServer(opts = {}) {
   function loadArtifacts(ticketDir) {
     const artifacts = {};
     let changed = false;
-    const files = {
-      prd: 'PRD.json',
-      review: 'REVIEW.json',
-      feedback: 'FEEDBACK.json',
-      conflict: 'CONFLICT.json',
-      secrets: 'SECRETS.json',
-    };
-    for (const [key, filename] of Object.entries(files)) {
+    for (const [key, filename] of Object.entries(ARTIFACT_FILES)) {
       const filePath = path.join(ticketDir, filename);
       try {
         const stat = fs.statSync(filePath);
@@ -126,16 +131,18 @@ function createDashboardServer(opts = {}) {
 
   function broadcast() {
     const allStates = getAllStates();
+    const failed = [];
     for (const client of sseClients) {
       for (const state of allStates) {
         const event = { type: 'snapshot', ticketId: state.ticketId, data: state };
         try {
           client.write(`data: ${JSON.stringify(event)}\n\n`);
         } catch {
-          sseClients.delete(client);
+          failed.push(client);
         }
       }
     }
+    for (const client of failed) sseClients.delete(client);
   }
 
   function getAllStates() {
