@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity } = require('../lib/state.js');
+const { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity, classifyRunTerminal } = require('../lib/state.js');
 
 describe('parseLogLine', () => {
   it('parses valid JSONL log entry', () => {
@@ -182,5 +182,35 @@ describe('classifyRunActivity', () => {
 
   it('returns false for null overallStatus with pidAlive false', () => {
     assert.equal(classifyRunActivity({ overallStatus: null }, false), false);
+  });
+});
+
+describe('classifyRunTerminal', () => {
+  it('returns true for done', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'done' }), true);
+  });
+
+  it('returns true for escalated', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'escalated' }), true);
+  });
+
+  it('returns true for blocked_secrets', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'blocked_secrets' }), true);
+  });
+
+  it('returns false for in_progress', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'in_progress' }), false);
+  });
+
+  it('returns false for pending', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'pending' }), false);
+  });
+
+  it('returns false for pr_open', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'pr_open' }), false);
+  });
+
+  it('returns false for null', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: null }), false);
   });
 });

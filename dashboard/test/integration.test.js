@@ -291,6 +291,44 @@ describe('Dashboard Server', () => {
     assert.equal(data[0].title, 'Updated', 'should re-read after mtime change');
   });
 
+  it('run state includes isTerminal boolean', async () => {
+    const ticketDir = path.join(runsDir, 'TERM-1');
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(
+      path.join(ticketDir, 'run.log'),
+      '{"ts":"1","level":"INFO","cat":"startup","msg":"started"}\n'
+    );
+    fs.writeFileSync(
+      path.join(ticketDir, 'PRD.json'),
+      JSON.stringify({ title: 'Done run', overall_status: 'done', tasks: [] })
+    );
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const res = await fetch(`${baseUrl}/api/runs`);
+    const data = JSON.parse(res.body);
+    assert.equal(data[0].isTerminal, true);
+  });
+
+  it('non-terminal run has isTerminal === false', async () => {
+    const ticketDir = path.join(runsDir, 'TERM-2');
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(
+      path.join(ticketDir, 'run.log'),
+      '{"ts":"1","level":"INFO","cat":"startup","msg":"started"}\n'
+    );
+    fs.writeFileSync(
+      path.join(ticketDir, 'PRD.json'),
+      JSON.stringify({ title: 'Active run', overall_status: 'in_progress', tasks: [] })
+    );
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const res = await fetch(`${baseUrl}/api/runs`);
+    const data = JSON.parse(res.body);
+    assert.equal(data[0].isTerminal, false);
+  });
+
   it('run with stale pid.json (dead PID) → isActive === false', async () => {
     const ticketDir = path.join(runsDir, 'PID-3');
     fs.mkdirSync(ticketDir);

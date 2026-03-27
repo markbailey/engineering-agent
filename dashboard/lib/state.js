@@ -109,4 +109,8 @@ function classifyRunActivity(runState, pidAlive) {
   return pidAlive;
 }
 
-module.exports = { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity };
+function classifyRunTerminal(runState) {
+  return TERMINAL_STATUSES.includes(runState.overallStatus);
+}
+
+module.exports = { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity, classifyRunTerminal };

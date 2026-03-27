@@ -164,6 +164,15 @@ body::after {
   border-bottom-color: var(--accent-green);
 }
 
+.tab.inactive {
+  opacity: 0.6;
+}
+
+.tab.terminal {
+  opacity: 0.5;
+  font-style: italic;
+}
+
 .tab-status {
   width: 6px;
   height: 6px;
@@ -175,6 +184,8 @@ body::after {
 .tab-status.complete, .tab-status.done { background: var(--accent-green); }
 .tab-status.error, .tab-status.blocked_secrets { background: var(--accent-red); animation: pulse-red 1.5s ease-in-out infinite; }
 .tab-status.pending { background: var(--text-muted); }
+.tab-status.pr_open, .tab-status.pr_monitoring { background: var(--accent-cyan); }
+.tab-status.escalated { background: var(--accent-red); }
 
 /* === VIEW TOGGLE === */
 .view-toggle {

@@ -5,7 +5,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { LogTailer, scanRunsDir } = require('./lib/watcher.js');
-const { parseLogLine, buildRunState, mergeArtifacts, classifyRunActivity } = require('./lib/state.js');
+const { parseLogLine, buildRunState, mergeArtifacts, classifyRunActivity, classifyRunTerminal } = require('./lib/state.js');
 
 const DEFAULT_PORT = 3847;
 const DEFAULT_POLL_MS = 1000;
@@ -70,6 +70,7 @@ function createDashboardServer(opts = {}) {
 
       const pidAlive = checkPidAlive(ticketDir);
       run.state.isActive = classifyRunActivity(run.state, pidAlive);
+      run.state.isTerminal = classifyRunTerminal(run.state);
 
       if (logsChanged || artifactsChanged) {
         run.version++;

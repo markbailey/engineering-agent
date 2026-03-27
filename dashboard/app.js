@@ -76,7 +76,7 @@
       }
       if (runs.length > 0 && !state.activeRunId) {
         const firstActive = runs.find(r => r.isActive);
-        if (firstActive) state.activeRunId = firstActive.ticketId;
+        state.activeRunId = firstActive ? firstActive.ticketId : runs[0].ticketId;
       }
       initialLoaded = true;
       render();
@@ -110,7 +110,7 @@
       }
 
       state.runs.set(event.ticketId, event.data);
-      if (!state.activeRunId && event.data.isActive) {
+      if (!state.activeRunId) {
         state.activeRunId = event.ticketId;
       }
     } else if (event.type === 'remove') {
@@ -124,12 +124,22 @@
 
   // --- Rendering ---
   function render() {
-    // If activeRunId is gone or inactive, pick first active run
-    const currentRun = state.runs.get(state.activeRunId);
-    if (!currentRun || !currentRun.isActive) {
+    // If activeRunId is gone (removed from disk), pick a new one
+    if (state.activeRunId && !state.runs.has(state.activeRunId)) {
       state.activeRunId = null;
+    }
+    if (!state.activeRunId && state.runs.size > 0) {
+      // Prefer active run, fall back to most recent
       for (const [id, run] of state.runs) {
         if (run.isActive) { state.activeRunId = id; break; }
+      }
+      if (!state.activeRunId) {
+        const sorted = [...state.runs.entries()].sort((a, b) => {
+          const ta = a[1].startedAt ? new Date(a[1].startedAt).getTime() : 0;
+          const tb = b[1].startedAt ? new Date(b[1].startedAt).getTime() : 0;
+          return tb - ta;
+        });
+        state.activeRunId = sorted[0][0];
       }
     }
     renderTabs();
@@ -257,7 +267,6 @@
     bar.innerHTML = '';
 
     const sorted = [...state.runs.entries()]
-      .filter(([, run]) => run.isActive)
       .sort((a, b) => {
         const ta = a[1].startedAt ? new Date(a[1].startedAt).getTime() : 0;
         const tb = b[1].startedAt ? new Date(b[1].startedAt).getTime() : 0;
@@ -265,8 +274,12 @@
       });
 
     for (const [id, run] of sorted) {
+      let cls = 'tab';
+      if (id === state.activeRunId) cls += ' active';
+      if (run.isTerminal) cls += ' terminal';
+      else if (!run.isActive) cls += ' inactive';
       const tab = document.createElement('button');
-      tab.className = 'tab' + (id === state.activeRunId ? ' active' : '');
+      tab.className = cls;
       tab.onclick = () => { state.activeRunId = id; render(); };
 
       const dot = document.createElement('span');
