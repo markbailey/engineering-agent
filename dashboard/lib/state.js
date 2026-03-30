@@ -53,9 +53,13 @@ function buildRunState(ticketId, logs) {
       hasPrd: false,
       hasReview: false,
       hasFeedback: false,
+      hasEscalation: false,
       hasConflict: false,
       hasSecrets: false,
     },
+    reviewContent: null,
+    feedbackContent: null,
+    escalationContent: null,
     startedAt: logs.length > 0 ? logs[0].ts : null,
     lastActivity: logs.length > 0 ? logs[logs.length - 1].ts : null,
   };
@@ -80,8 +84,18 @@ function mergeArtifacts(state, artifacts) {
     merged.artifacts.hasPrd = true;
   }
 
-  if (artifacts.review) merged.artifacts.hasReview = true;
-  if (artifacts.feedback) merged.artifacts.hasFeedback = true;
+  if (artifacts.review) {
+    merged.artifacts.hasReview = true;
+    merged.reviewContent = artifacts.review;
+  }
+  if (artifacts.feedback) {
+    merged.artifacts.hasFeedback = true;
+    merged.feedbackContent = artifacts.feedback;
+  }
+  if (artifacts.escalation) {
+    merged.artifacts.hasEscalation = true;
+    merged.escalationContent = artifacts.escalation;
+  }
   if (artifacts.conflict) merged.artifacts.hasConflict = true;
   if (artifacts.secrets) merged.artifacts.hasSecrets = true;
 
@@ -91,8 +105,12 @@ function mergeArtifacts(state, artifacts) {
 const TERMINAL_STATUSES = ['done', 'escalated', 'blocked_secrets'];
 
 function classifyRunActivity(runState, pidAlive) {
-  if (TERMINAL_STATUSES.includes(runState.overallStatus)) return 'inactive';
-  return pidAlive ? 'active' : 'inactive';
+  if (TERMINAL_STATUSES.includes(runState.overallStatus)) return false;
+  return pidAlive;
 }
 
-module.exports = { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity };
+function classifyRunTerminal(runState) {
+  return TERMINAL_STATUSES.includes(runState.overallStatus);
+}
+
+module.exports = { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity, classifyRunTerminal };

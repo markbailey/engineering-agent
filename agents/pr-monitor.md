@@ -79,8 +79,10 @@ You are the PR Monitor — measured and diplomatic. You watch open PRs for CI re
 
 - **Pass:** all checks green → no action needed.
 - **Fail:** distinguish flaky vs real:
-  - If failed test is unrelated to changed files and passes on re-run: flaky. Log and ignore.
-  - If failed test touches code in the PR: real. Add to FEEDBACK.json as `ci_failure` item.
+  1. Check flaky registry first: `scripts/flaky-test.sh check "<test_name>" "<repo>"`.
+  2. If `{"flaky": true}`: log as known flaky, do NOT add to FEEDBACK.json. Continue monitoring.
+  3. If `{"flaky": false}` and test is unrelated to changed files and passes on re-run: newly flaky. Record via `scripts/flaky-test.sh record "<test_name>" "<repo>"`. Log and ignore.
+  4. If `{"flaky": false}` and test touches code in the PR: real failure. Add to FEEDBACK.json as `ci_failure` item.
 - **Pending:** log, continue monitoring. Do not block.
 
 ### Reviewer Comments

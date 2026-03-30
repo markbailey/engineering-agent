@@ -83,6 +83,98 @@ describe('LogTailer', () => {
   });
 });
 
+describe('tailLast', () => {
+  let dir;
+  let logFile;
+
+  beforeEach(() => {
+    dir = tmpDir();
+    logFile = path.join(dir, 'run.log');
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('reads last N lines from file', () => {
+    const tailer = new LogTailer();
+    const lines = Array.from({ length: 10 }, (_, i) => `line${i}`);
+    fs.writeFileSync(logFile, lines.join('\n') + '\n');
+    const result = tailer.tailLast(logFile, 5);
+    assert.deepEqual(result, ['line5', 'line6', 'line7', 'line8', 'line9']);
+  });
+
+  it('returns all lines when file shorter than maxLines', () => {
+    const tailer = new LogTailer();
+    fs.writeFileSync(logFile, 'a\nb\nc\n');
+    const result = tailer.tailLast(logFile, 50);
+    assert.deepEqual(result, ['a', 'b', 'c']);
+  });
+
+  it('handles empty file', () => {
+    const tailer = new LogTailer();
+    fs.writeFileSync(logFile, '');
+    const result = tailer.tailLast(logFile);
+    assert.deepEqual(result, []);
+  });
+
+  it('handles nonexistent file', () => {
+    const tailer = new LogTailer();
+    const result = tailer.tailLast('/nonexistent/path/file.log');
+    assert.deepEqual(result, []);
+  });
+
+  it('defaults to 50 lines', () => {
+    const tailer = new LogTailer();
+    const lines = Array.from({ length: 60 }, (_, i) => `line${i}`);
+    fs.writeFileSync(logFile, lines.join('\n') + '\n');
+    const result = tailer.tailLast(logFile);
+    assert.equal(result.length, 50);
+    assert.equal(result[0], 'line10');
+    assert.equal(result[49], 'line59');
+  });
+});
+
+describe('hasNewData', () => {
+  let dir;
+  let logFile;
+
+  beforeEach(() => {
+    dir = tmpDir();
+    logFile = path.join(dir, 'run.log');
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns true when file has grown since last tail', () => {
+    const tailer = new LogTailer();
+    fs.writeFileSync(logFile, 'line1\n');
+    tailer.tail(logFile);
+    fs.appendFileSync(logFile, 'line2\n');
+    assert.equal(tailer.hasNewData(logFile), true);
+  });
+
+  it('returns false when file has not grown', () => {
+    const tailer = new LogTailer();
+    fs.writeFileSync(logFile, 'line1\n');
+    tailer.tail(logFile);
+    assert.equal(tailer.hasNewData(logFile), false);
+  });
+
+  it('returns true for never-tailed file that exists', () => {
+    const tailer = new LogTailer();
+    fs.writeFileSync(logFile, 'line1\n');
+    assert.equal(tailer.hasNewData(logFile), true);
+  });
+
+  it('returns false for nonexistent file', () => {
+    const tailer = new LogTailer();
+    assert.equal(tailer.hasNewData('/nonexistent/file'), false);
+  });
+});
+
 describe('scanRunsDir', () => {
   let dir;
 

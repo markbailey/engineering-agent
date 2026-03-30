@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity } = require('../lib/state.js');
+const { parseLogLine, buildRunState, mergeArtifacts, TERMINAL_STATUSES, classifyRunActivity, classifyRunTerminal } = require('../lib/state.js');
 
 describe('parseLogLine', () => {
   it('parses valid JSONL log entry', () => {
@@ -118,14 +118,31 @@ describe('mergeArtifacts', () => {
       prd: { title: 'x', overall_status: 'done', tasks: [] },
       review: {},
       feedback: {},
+      escalation: {},
       conflict: {},
       secrets: {},
     });
     assert.equal(merged.artifacts.hasPrd, true);
     assert.equal(merged.artifacts.hasReview, true);
     assert.equal(merged.artifacts.hasFeedback, true);
+    assert.equal(merged.artifacts.hasEscalation, true);
     assert.equal(merged.artifacts.hasConflict, true);
     assert.equal(merged.artifacts.hasSecrets, true);
+  });
+
+  it('stores artifact content for review, feedback, escalation', () => {
+    const state = buildRunState('T-1', []);
+    const reviewData = { issues: [{ severity: 'high', msg: 'missing null check' }] };
+    const feedbackData = { items: [{ file: 'index.js', comment: 'simplify' }] };
+    const escalationData = { category: 'test_failure', severity: 'high' };
+    const merged = mergeArtifacts(state, {
+      review: reviewData,
+      feedback: feedbackData,
+      escalation: escalationData,
+    });
+    assert.deepEqual(merged.reviewContent, reviewData);
+    assert.deepEqual(merged.feedbackContent, feedbackData);
+    assert.deepEqual(merged.escalationContent, escalationData);
   });
 
   it('handles missing PRD gracefully', () => {
@@ -139,31 +156,61 @@ describe('mergeArtifacts', () => {
 });
 
 describe('classifyRunActivity', () => {
-  it('returns inactive for terminal status done even with pidAlive', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'done' }, true), 'inactive');
+  it('returns false for terminal status done even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'done' }, true), false);
   });
 
-  it('returns inactive for terminal status escalated even with pidAlive', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'escalated' }, true), 'inactive');
+  it('returns false for terminal status escalated even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'escalated' }, true), false);
   });
 
-  it('returns inactive for terminal status blocked_secrets even with pidAlive', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'blocked_secrets' }, true), 'inactive');
+  it('returns false for terminal status blocked_secrets even with pidAlive', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'blocked_secrets' }, true), false);
   });
 
-  it('returns active for non-terminal status with pidAlive true', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, true), 'active');
+  it('returns true for non-terminal status with pidAlive true', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, true), true);
   });
 
-  it('returns inactive for non-terminal status with pidAlive false', () => {
-    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, false), 'inactive');
+  it('returns false for non-terminal status with pidAlive false', () => {
+    assert.equal(classifyRunActivity({ overallStatus: 'in_progress' }, false), false);
   });
 
-  it('returns active for null overallStatus with pidAlive true', () => {
-    assert.equal(classifyRunActivity({ overallStatus: null }, true), 'active');
+  it('returns true for null overallStatus with pidAlive true', () => {
+    assert.equal(classifyRunActivity({ overallStatus: null }, true), true);
   });
 
-  it('returns inactive for null overallStatus with pidAlive false', () => {
-    assert.equal(classifyRunActivity({ overallStatus: null }, false), 'inactive');
+  it('returns false for null overallStatus with pidAlive false', () => {
+    assert.equal(classifyRunActivity({ overallStatus: null }, false), false);
+  });
+});
+
+describe('classifyRunTerminal', () => {
+  it('returns true for done', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'done' }), true);
+  });
+
+  it('returns true for escalated', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'escalated' }), true);
+  });
+
+  it('returns true for blocked_secrets', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'blocked_secrets' }), true);
+  });
+
+  it('returns false for in_progress', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'in_progress' }), false);
+  });
+
+  it('returns false for pending', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'pending' }), false);
+  });
+
+  it('returns false for pr_open', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: 'pr_open' }), false);
+  });
+
+  it('returns false for null', () => {
+    assert.equal(classifyRunTerminal({ overallStatus: null }), false);
   });
 });

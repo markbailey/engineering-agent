@@ -1,0 +1,13 @@
+{
+  "name": "engineering-agent",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:ajv": "node scripts/build-ajv.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "esbuild": "^0.25.0"
+  }
+}

@@ -8,7 +8,8 @@
 # Event types:
 #   pr_opened, pr_updated, ci_failed, ci_passed, escalation,
 #   rate_limit, secret_found, review_complete, merge_conflict,
-#   task_complete, run_complete, run_failed, blocked, resumed
+#   task_complete, run_complete, run_failed, blocked, resumed,
+#   timeout
 #
 # Outputs a prominent terminal banner + logs EVENT to run.log
 
@@ -57,6 +58,7 @@ case "$event_type" in
   run_failed)             icon="[FAIL]";   severity="ERROR" ;;
   blocked)                icon="[BLOCKED]"; severity="WARN" ;;
   resumed)                icon="[RESUME]"; severity="INFO"  ;;
+  timeout)                icon="[TIMEOUT]"; severity="ERROR" ;;
   *)                      icon="[EVENT]";  severity="EVENT" ;;
 esac
 

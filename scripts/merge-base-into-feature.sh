@@ -6,18 +6,18 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/output.sh"
+
 if [[ $# -lt 2 ]]; then
-  echo "Usage: merge-base-into-feature.sh <worktree_path> <base_branch>" >&2
-  exit 2
+  emit_error "Usage: merge-base-into-feature.sh <worktree_path> <base_branch>" 2
 fi
 
 wt_path="$1"
 base_branch="$2"
 
 if [[ ! -d "$wt_path/.git" && ! -f "$wt_path/.git" ]]; then
-  echo '{"status":"error","conflicted_files":[],"base_commit":null}'
-  echo "ERROR: Not a git worktree: $wt_path" >&2
-  exit 2
+  emit_error "Not a git worktree: $wt_path" 2
 fi
 
 cd "$wt_path"
@@ -28,9 +28,7 @@ git fetch origin 2>/dev/null
 # Record base commit SHA
 base_commit=$(git rev-parse "origin/$base_branch" 2>/dev/null) || true
 if [[ -z "$base_commit" ]] || ! git cat-file -t "$base_commit" >/dev/null 2>&1; then
-  echo '{"status":"error","conflicted_files":[],"base_commit":null}'
-  echo "ERROR: Cannot resolve origin/$base_branch" >&2
-  exit 2
+  emit_error "Cannot resolve origin/$base_branch" 2
 fi
 
 # Check if already up to date

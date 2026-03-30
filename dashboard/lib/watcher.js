@@ -46,6 +46,40 @@ class LogTailer {
     const complete = chunk.substring(0, lastNewline);
     return complete.split('\n').filter(l => l.length > 0);
   }
+
+  /**
+   * Read the last N complete lines from a file. Fresh read each call (no offset tracking).
+   * @param {string} filePath
+   * @param {number} maxLines
+   * @returns {string[]}
+   */
+  tailLast(filePath, maxLines = 50) {
+    let content;
+    try {
+      content = fs.readFileSync(filePath, 'utf8');
+    } catch {
+      return [];
+    }
+    if (!content) return [];
+    const lines = content.split('\n').filter(l => l.length > 0);
+    return lines.slice(-maxLines);
+  }
+
+  /**
+   * Check if the file has grown since the last tail() call, without reading content.
+   * @param {string} filePath
+   * @returns {boolean}
+   */
+  hasNewData(filePath) {
+    let stat;
+    try {
+      stat = fs.statSync(filePath);
+    } catch {
+      return false;
+    }
+    const offset = this.offsets.get(filePath) || 0;
+    return stat.size > offset;
+  }
 }
 
 /**

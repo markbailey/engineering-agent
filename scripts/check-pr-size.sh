@@ -8,6 +8,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Source rate limit awareness
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/rate-limit.sh"
+
 # Load .env for threshold
 if [[ -f "$AGENT_ROOT/.env" ]]; then
   # shellcheck disable=SC1091

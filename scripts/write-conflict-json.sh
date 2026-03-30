@@ -92,12 +92,11 @@ console.log('CONFLICT.json written to ' + process.argv[8]);
   "$merge_commit_sha" \
   "$runs_dir/CONFLICT.json"
 
-# Validate against schema
-if [[ -f "$AGENT_ROOT/scripts/validate-schemas.js" ]]; then
-  validation=$(node "$AGENT_ROOT/scripts/validate-schemas.js" "$runs_dir/CONFLICT.json" conflict 2>&1)
-  if [[ $? -ne 0 ]]; then
-    echo "WARNING: CONFLICT.json schema validation failed: $validation" >&2
-  fi
+# Validate output against schema
+if ! node "$SCRIPT_DIR/validate-schemas.js" "$runs_dir/CONFLICT.json" "conflict" >/dev/null 2>&1; then
+  echo "ERROR: Schema validation failed for $runs_dir/CONFLICT.json" >&2
+  # .invalid.json is already written by validate-schemas.js
+  exit 1
 fi
 
 exit 0

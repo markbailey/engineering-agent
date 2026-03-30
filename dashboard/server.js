@@ -5,75 +5,92 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { LogTailer, scanRunsDir } = require('./lib/watcher.js');
-const { parseLogLine, buildRunState, mergeArtifacts, classifyRunActivity } = require('./lib/state.js');
+const { parseLogLine, buildRunState, mergeArtifacts, classifyRunActivity, classifyRunTerminal } = require('./lib/state.js');
 
 const DEFAULT_PORT = 3847;
 const DEFAULT_POLL_MS = 1000;
+const DEFAULT_KEEPALIVE_MS = 15000;
 
 /**
  * Create and return an HTTP server (not yet listening).
- * @param {{ runsDir?: string, pollInterval?: number }} opts
+ * @param {{ runsDir?: string, pollInterval?: number, keepaliveInterval?: number }} opts
  */
 function createDashboardServer(opts = {}) {
   const runsDir = opts.runsDir || path.resolve(process.cwd(), 'runs');
   const pollInterval = opts.pollInterval || DEFAULT_POLL_MS;
+  const keepaliveInterval = opts.keepaliveInterval || DEFAULT_KEEPALIVE_MS;
 
-  /** @type {Map<string, { logs: object[], state: object }>} */
+  /** @type {Map<string, { state: object, version: number }>} */
   const runs = new Map();
+  /** @type {Map<string, { mtimeMs: number, data: object }>} */
+  const artifactCache = new Map();
   const tailer = new LogTailer();
   /** @type {Set<http.ServerResponse>} */
   const sseClients = new Set();
 
-  const indexHtml = loadIndexHtml();
+  const ARTIFACT_FILES = {
+    prd: 'PRD.json',
+    review: 'REVIEW.json',
+    feedback: 'FEEDBACK.json',
+    escalation: 'ESCALATION.json',
+    conflict: 'CONFLICT.json',
+    secrets: 'SECRETS.json',
+  };
+
+  // Static files read fresh on each request (no restart needed during dev)
 
   // --- Polling ---
 
   function poll() {
     const tickets = scanRunsDir(runsDir);
-    let changed = false;
+    let anyChanged = false;
 
     for (const ticketId of tickets) {
       const ticketDir = path.join(runsDir, ticketId);
       const logFile = path.join(ticketDir, 'run.log');
 
-      // Initialize run entry if new
       if (!runs.has(ticketId)) {
-        runs.set(ticketId, { logs: [], state: null });
+        runs.set(ticketId, { state: null, version: 0 });
+        anyChanged = true; // new run = change
       }
 
       const run = runs.get(ticketId);
 
-      const prevJson = run.state ? JSON.stringify(run.state) : '';
+      // Detect changes: new log lines OR artifact changes
+      const logLines = tailer.tail(logFile);
+      const logsChanged = logLines.length > 0;
 
-      // Tail log file
-      const newLines = tailer.tail(logFile);
-      for (const line of newLines) {
-        const entry = parseLogLine(line);
-        if (entry) run.logs.push(entry);
-      }
+      // Read last 50 lines for state building
+      const rawLines = tailer.tailLast(logFile, 50);
+      const logs = rawLines.map(parseLogLine).filter(Boolean);
 
-      // Rebuild state (cheap — always rebuild to pick up artifact changes)
-      const newState = buildRunState(ticketId, run.logs);
-      const artifacts = loadArtifacts(ticketDir);
+      const newState = buildRunState(ticketId, logs);
+      const { artifacts, changed: artifactsChanged } = loadArtifacts(ticketDir);
       run.state = mergeArtifacts(newState, artifacts);
 
       const pidAlive = checkPidAlive(ticketDir);
       run.state.isActive = classifyRunActivity(run.state, pidAlive);
+      run.state.isTerminal = classifyRunTerminal(run.state);
 
-      if (JSON.stringify(run.state) !== prevJson) {
-        changed = true;
+      if (logsChanged || artifactsChanged) {
+        run.version++;
+        anyChanged = true;
       }
     }
 
-    // Remove runs no longer on disk
+    // Remove runs no longer on disk + clean artifact cache
     for (const ticketId of runs.keys()) {
       if (!tickets.includes(ticketId)) {
+        const ticketDir = path.join(runsDir, ticketId);
+        for (const filename of Object.values(ARTIFACT_FILES)) {
+          artifactCache.delete(path.join(ticketDir, filename));
+        }
         runs.delete(ticketId);
-        changed = true;
+        anyChanged = true;
       }
     }
 
-    if (changed) {
+    if (anyChanged) {
       broadcast();
     }
   }
@@ -91,36 +108,43 @@ function createDashboardServer(opts = {}) {
 
   function loadArtifacts(ticketDir) {
     const artifacts = {};
-    const files = {
-      prd: 'PRD.json',
-      review: 'REVIEW.json',
-      feedback: 'FEEDBACK.json',
-      conflict: 'CONFLICT.json',
-      secrets: 'SECRETS.json',
-    };
-    for (const [key, filename] of Object.entries(files)) {
+    let changed = false;
+    for (const [key, filename] of Object.entries(ARTIFACT_FILES)) {
+      const filePath = path.join(ticketDir, filename);
       try {
-        const content = fs.readFileSync(path.join(ticketDir, filename), 'utf8');
-        artifacts[key] = JSON.parse(content);
+        const stat = fs.statSync(filePath);
+        const cached = artifactCache.get(filePath);
+        if (cached && cached.mtimeMs === stat.mtimeMs) {
+          artifacts[key] = cached.data;
+        } else {
+          const content = fs.readFileSync(filePath, 'utf8');
+          const data = JSON.parse(content);
+          artifactCache.set(filePath, { mtimeMs: stat.mtimeMs, data });
+          artifacts[key] = data;
+          changed = true;
+        }
       } catch {
         // file doesn't exist or invalid JSON — skip
+        artifactCache.delete(filePath);
       }
     }
-    return artifacts;
+    return { artifacts, changed };
   }
 
   function broadcast() {
     const allStates = getAllStates();
+    const failed = [];
     for (const client of sseClients) {
       for (const state of allStates) {
         const event = { type: 'snapshot', ticketId: state.ticketId, data: state };
         try {
           client.write(`data: ${JSON.stringify(event)}\n\n`);
         } catch {
-          sseClients.delete(client);
+          failed.push(client);
         }
       }
     }
+    for (const client of failed) sseClients.delete(client);
   }
 
   function getAllStates() {
@@ -139,10 +163,18 @@ function createDashboardServer(opts = {}) {
     }
   }
 
+  function loadStaticFile(filename) {
+    try {
+      return fs.readFileSync(path.join(__dirname, filename), 'utf8');
+    } catch {
+      return '';
+    }
+  }
+
   const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(indexHtml);
+      res.end(loadIndexHtml());
       return;
     }
 
@@ -164,27 +196,42 @@ function createDashboardServer(opts = {}) {
       return;
     }
 
+    if (req.method === 'GET' && req.url === '/style.css') {
+      res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+      res.end(loadStaticFile('style.css'));
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/app.js') {
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      res.end(loadStaticFile('app.js'));
+      return;
+    }
+
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not Found');
   });
 
   let pollTimer;
-  const origListen = server.listen.bind(server);
-  server.listen = function (...args) {
-    pollTimer = setInterval(poll, pollInterval);
+  let keepaliveTimer;
+  server.on('listening', () => {
     poll(); // initial scan
-    return origListen(...args);
-  };
+    pollTimer = setInterval(poll, pollInterval);
+    keepaliveTimer = setInterval(() => {
+      for (const client of sseClients) {
+        try { client.write(':keepalive\n\n'); } catch { sseClients.delete(client); }
+      }
+    }, keepaliveInterval);
+  });
 
-  const origClose = server.close.bind(server);
-  server.close = function (cb) {
+  server.on('close', () => {
     clearInterval(pollTimer);
+    clearInterval(keepaliveTimer);
     for (const client of sseClients) {
       try { client.end(); } catch {}
     }
     sseClients.clear();
-    return origClose(cb);
-  };
+  });
 
   return server;
 }

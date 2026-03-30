@@ -1,0 +1,8 @@
+{
+  "ticket_id": "TEST-2",
+  "title": "Fix null pointer in auth middleware",
+  "type": "Bug",
+  "requirements": "The auth middleware crashes when token is null. Add null check before validation. Also add test coverage.",
+  "acceptance_criteria": ["Null token returns 401 not 500", "Test covers null token case", "Existing tests still pass"],
+  "repo": "HARNESS"
+}

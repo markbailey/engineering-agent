@@ -17,6 +17,9 @@ Thumbs.db
 # Run artifacts (keep structure, ignore contents)
 runs/*/
 
+# Local ticket files (input, not source)
+tickets/
+
 # Worktrees managed externally
 
 # Local repo config (contains machine-specific paths)

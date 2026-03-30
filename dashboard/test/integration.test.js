@@ -79,6 +79,20 @@ describe('Dashboard Server', () => {
     assert.ok(res.body.includes('<!DOCTYPE html>') || res.body.includes('<!doctype html>'));
   });
 
+  it('serves style.css with correct Content-Type', async () => {
+    const res = await fetch(`${baseUrl}/style.css`);
+    assert.equal(res.status, 200);
+    assert.ok(res.headers['content-type'].includes('text/css'));
+    assert.ok(res.body.length > 0);
+  });
+
+  it('serves app.js with correct Content-Type', async () => {
+    const res = await fetch(`${baseUrl}/app.js`);
+    assert.equal(res.status, 200);
+    assert.ok(res.headers['content-type'].includes('application/javascript'));
+    assert.ok(res.body.length > 0);
+  });
+
   it('returns 404 for unknown routes', async () => {
     const res = await fetch(`${baseUrl}/unknown`);
     assert.equal(res.status, 404);
@@ -167,7 +181,7 @@ describe('Dashboard Server', () => {
     assert.equal(data[0].artifacts.hasPrd, true);
   });
 
-  it('run with valid pid.json (current process PID) → isActive === active', async () => {
+  it('run with valid pid.json (current process PID) → isActive === true', async () => {
     const ticketDir = path.join(runsDir, 'PID-1');
     fs.mkdirSync(ticketDir);
     fs.writeFileSync(
@@ -183,10 +197,10 @@ describe('Dashboard Server', () => {
 
     const res = await fetch(`${baseUrl}/api/runs`);
     const data = JSON.parse(res.body);
-    assert.equal(data[0].isActive, 'active');
+    assert.equal(data[0].isActive, true);
   });
 
-  it('run with no pid.json → isActive === inactive', async () => {
+  it('run with no pid.json → isActive === false', async () => {
     const ticketDir = path.join(runsDir, 'PID-2');
     fs.mkdirSync(ticketDir);
     fs.writeFileSync(
@@ -198,10 +212,124 @@ describe('Dashboard Server', () => {
 
     const res = await fetch(`${baseUrl}/api/runs`);
     const data = JSON.parse(res.body);
-    assert.equal(data[0].isActive, 'inactive');
+    assert.equal(data[0].isActive, false);
   });
 
-  it('run with stale pid.json (dead PID) → isActive === inactive', async () => {
+  it('sends SSE keepalive comments at configured interval', async () => {
+    // Create server with short keepalive interval for testing
+    const kaServer = createDashboardServer({ runsDir, keepaliveInterval: 200 });
+    const kaBaseUrl = await new Promise((resolve) => {
+      kaServer.listen(0, '127.0.0.1', () => {
+        const { port } = kaServer.address();
+        resolve(`http://127.0.0.1:${port}`);
+      });
+    });
+
+    const received = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        req.destroy();
+        reject(new Error('keepalive timeout'));
+      }, 2000);
+      const req = http.get(`${kaBaseUrl}/events`, (res) => {
+        let buf = '';
+        res.on('data', (chunk) => {
+          buf += chunk;
+          if (buf.includes(':keepalive')) {
+            clearTimeout(timer);
+            req.destroy();
+            resolve(buf);
+          }
+        });
+        res.on('error', () => {});
+      });
+      req.on('error', (err) => {
+        if (err.code !== 'ECONNRESET') {
+          clearTimeout(timer);
+          reject(err);
+        }
+      });
+    });
+
+    await new Promise((resolve) => kaServer.close(resolve));
+
+    assert.ok(received.includes(':keepalive'), 'should receive :keepalive comment');
+  });
+
+  it('uses cached artifacts when file unchanged, re-reads on change', async () => {
+    const ticketDir = path.join(runsDir, 'CACHE-1');
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(
+      path.join(ticketDir, 'run.log'),
+      '{"ts":"1","level":"INFO","cat":"startup","msg":"started"}\n'
+    );
+    const prdPath = path.join(ticketDir, 'PRD.json');
+    fs.writeFileSync(
+      prdPath,
+      JSON.stringify({ title: 'Original', overall_status: 'in_progress', tasks: [] })
+    );
+
+    // Wait for first poll to pick up artifacts
+    await new Promise(r => setTimeout(r, 400));
+
+    let res = await fetch(`${baseUrl}/api/runs`);
+    let data = JSON.parse(res.body);
+    assert.equal(data[0].title, 'Original');
+
+    // Overwrite PRD.json with new title — mtime changes
+    // Ensure mtime actually advances (some FS have 1s granularity)
+    await new Promise(r => setTimeout(r, 50));
+    fs.writeFileSync(
+      prdPath,
+      JSON.stringify({ title: 'Updated', overall_status: 'in_progress', tasks: [] })
+    );
+
+    // Wait for next poll
+    await new Promise(r => setTimeout(r, 400));
+
+    res = await fetch(`${baseUrl}/api/runs`);
+    data = JSON.parse(res.body);
+    assert.equal(data[0].title, 'Updated', 'should re-read after mtime change');
+  });
+
+  it('run state includes isTerminal boolean', async () => {
+    const ticketDir = path.join(runsDir, 'TERM-1');
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(
+      path.join(ticketDir, 'run.log'),
+      '{"ts":"1","level":"INFO","cat":"startup","msg":"started"}\n'
+    );
+    fs.writeFileSync(
+      path.join(ticketDir, 'PRD.json'),
+      JSON.stringify({ title: 'Done run', overall_status: 'done', tasks: [] })
+    );
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const res = await fetch(`${baseUrl}/api/runs`);
+    const data = JSON.parse(res.body);
+    assert.equal(data[0].isTerminal, true);
+  });
+
+  it('non-terminal run has isTerminal === false', async () => {
+    const ticketDir = path.join(runsDir, 'TERM-2');
+    fs.mkdirSync(ticketDir);
+    fs.writeFileSync(
+      path.join(ticketDir, 'run.log'),
+      '{"ts":"1","level":"INFO","cat":"startup","msg":"started"}\n'
+    );
+    fs.writeFileSync(
+      path.join(ticketDir, 'PRD.json'),
+      JSON.stringify({ title: 'Active run', overall_status: 'in_progress', tasks: [] })
+    );
+
+    await new Promise(r => setTimeout(r, 400));
+
+    const res = await fetch(`${baseUrl}/api/runs`);
+    const data = JSON.parse(res.body);
+    assert.equal(data[0].isTerminal, false);
+  });
+
+  it('run with stale pid.json (dead PID) → isActive === false', async () => {
     const ticketDir = path.join(runsDir, 'PID-3');
     fs.mkdirSync(ticketDir);
     fs.writeFileSync(
@@ -217,6 +345,6 @@ describe('Dashboard Server', () => {
 
     const res = await fetch(`${baseUrl}/api/runs`);
     const data = JSON.parse(res.body);
-    assert.equal(data[0].isActive, 'inactive');
+    assert.equal(data[0].isActive, false);
   });
 });
