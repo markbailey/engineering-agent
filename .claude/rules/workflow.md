@@ -120,7 +120,9 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
                   → PR Agent pushes merge commit
                   → Continue loop
               → "dependency_merged":
+                  → Note: GitHub auto-retargets PR to main when dependency branch is deleted on merge
                   → Run `scripts/conflict-resolution.sh {wt_path} main {feature_branch} {ticket}`
+                  → Update PRD.json: base_branch → main, base_is_dependency → false
                   → QA Agent: re-verify (full suite)
                   → `scripts/check-branch-before-push.sh {worktree}` before push
                   → PR Agent pushes merge commit

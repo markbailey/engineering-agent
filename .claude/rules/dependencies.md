@@ -30,4 +30,4 @@ For each "blocked by" link on the ticket:
 - Worktree: `scripts/worktree-create.sh {branch} origin/{dependency-branch} --target-repo={repo_path} --repo-name={repo_name}`
 - Conflict Resolution uses dependency branch as base, not main
 - PRD.json records: `base_branch`, `base_is_dependency: true`, `dependency_ticket`, `dependency_pr`, `ultimate_base: "main"`
-- When dependency merges to main, PR Monitor triggers conflict resolution against main
+- When dependency merges to main, GitHub auto-retargets the PR to main (branch deleted on merge). PR Monitor detects this and triggers conflict resolution against main. PRD.json updated: `base_branch` → `main`, `base_is_dependency` → `false`.
