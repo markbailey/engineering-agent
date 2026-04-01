@@ -12,6 +12,8 @@ emit_result() {
 
 # Emit structured JSON error to stderr and exit
 # Usage: emit_error "something went wrong" [exit_code]
+# WARNING: Do not call emit_error inside $() — exit only terminates the subshell.
+# Instead: result=$(some_cmd) || emit_error "some_cmd failed"
 emit_error() {
   local msg="$1"
   local code="${2:-1}"

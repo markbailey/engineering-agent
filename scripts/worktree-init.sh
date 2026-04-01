@@ -138,7 +138,9 @@ if $needs_deps || [[ ! -d "$wt_path/node_modules" ]]; then
 
   # Reset formatting noise introduced by dependency install (postinstall scripts, etc.)
   echo "[init] Resetting formatting drift..."
-  git checkout -- . 2>/dev/null || true
+  if ! git checkout -- . 2>/dev/null; then
+    echo "WARNING: git checkout -- . failed — formatting drift may remain" >&2
+  fi
 fi
 
 # Verify node_modules

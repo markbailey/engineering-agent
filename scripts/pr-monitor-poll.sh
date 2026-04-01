@@ -36,7 +36,7 @@ pre_gh_check "$TICKET_ID"
 
 # Fetch PR state from GitHub (stderr captured separately)
 gh_stderr=$(mktemp)
-pr_json=$("$SCRIPT_DIR/retry-with-backoff.sh" --ticket="$TICKET_ID" 3 2000 -- gh pr view "$PR_NUMBER" ${REPO_FLAG[@]+"${REPO_FLAG[@]}"} --json state,statusCheckRollup,reviews,comments,mergeable,isDraft 2>"$gh_stderr") || {
+pr_json=$("$SCRIPT_DIR/retry-with-backoff.sh" --ticket="$TICKET_ID" 3 2000 -- "$SCRIPT_DIR/with-timeout.sh" "${AGENT_GH_TIMEOUT:-30}" gh pr view "$PR_NUMBER" ${REPO_FLAG[@]+"${REPO_FLAG[@]}"} --json state,statusCheckRollup,reviews,comments,mergeable,isDraft 2>"$gh_stderr") || {
   local_err=$(cat "$gh_stderr")
   rm -f "$gh_stderr"
   echo "{\"error\":\"Failed to fetch PR #$PR_NUMBER: $local_err\"}" >&2
