@@ -6,7 +6,7 @@ ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 ISSUE := $(word 1,$(ARGS))
 EXTRA := $(wordlist 2,$(words $(ARGS)),$(ARGS))
 
-.PHONY: help start dry-run resume revert pause stop ready-pr auto-merge address-feedback dashboard dashboard-test test test-scripts test-agent clean clean-dry
+.PHONY: help start dry-run resume revert pause stop ready-pr auto-merge address-feedback babysit-pr babysit-pr-once babysit-pr-dry dashboard dashboard-test test test-scripts test-agent clean clean-dry
 .DEFAULT_GOAL := help
 
 help:
@@ -24,6 +24,9 @@ help:
 	@echo "  revert            Revert a merged ticket's PR"
 	@echo "  auto-merge        Full workflow with auto-merge enabled"
 	@echo "  address-feedback  Address PR feedback including bot comments"
+	@echo "  babysit-pr        Continuous PR monitor (all your open PRs)"
+	@echo "  babysit-pr-once   Single-pass PR monitor"
+	@echo "  babysit-pr-dry    Dry-run PR monitor (report only)"
 	@echo "  dashboard         Start the real-time dashboard server"
 	@echo "  dashboard-test    Run dashboard tests"
 	@echo "  test              Run all tests"
@@ -81,6 +84,15 @@ dashboard-test:
 
 address-feedback: _require-issue
 	claude --permission-mode bypassPermissions "/address-feedback $(ISSUE) --include-bots $(EXTRA)"
+
+babysit-pr:
+	bash scripts/babysit-prs.sh $(EXTRA)
+
+babysit-pr-once:
+	bash scripts/babysit-prs.sh --once
+
+babysit-pr-dry:
+	bash scripts/babysit-prs.sh --once --dry-run
 
 clean:
 	bash scripts/cleanup-orphans.sh
