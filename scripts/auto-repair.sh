@@ -56,6 +56,8 @@ for entry in kb['entries']:
         if re.search(entry['error_pattern'], error_output):
             matches.append(entry)
     except re.error:
+        import sys as _sys
+        print(f\"WARNING: Invalid regex in repair entry {entry['id']}: {entry['error_pattern']!r}, falling back to literal match\", file=_sys.stderr)
         if entry['error_pattern'] in error_output:
             matches.append(entry)
 
@@ -94,6 +96,11 @@ operation = sys.argv[2]
 failed_approach = sys.argv[3]
 failure_reason = sys.argv[4]
 error_pattern = sys.argv[5]
+import re as _re
+try:
+    _re.compile(error_pattern)
+except _re.error as e:
+    print(f'WARNING: error_pattern is not valid regex: {error_pattern!r} ({e}). Will use literal match at lookup time.', file=sys.stderr)
 alternative = sys.argv[6]
 kb_file = sys.argv[7]
 

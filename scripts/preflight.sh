@@ -127,8 +127,14 @@ fi
 
 # 8. Jira reachable
 if [[ -n "${JIRA_URL:-}" ]]; then
+  jira_token="${JIRA_API_TOKEN:-${JIRA_PAT:-}}"
+  if [[ -n "${JIRA_API_TOKEN:-}" ]]; then
+    auth_header="Authorization: Basic $(printf '%s:%s' "${JIRA_EMAIL:-}" "$jira_token" | base64)"
+  else
+    auth_header="Authorization: Bearer $jira_token"
+  fi
   http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$JIRA_URL/rest/api/2/myself" \
-    -H "Authorization: Basic $(printf '%s:%s' "${JIRA_EMAIL:-}" "${JIRA_API_TOKEN:-}" | base64)" 2>/dev/null) || http_code="000"
+    -H "$auth_header" 2>/dev/null) || http_code="000"
   if [[ "$http_code" == "200" || "$http_code" == "401" || "$http_code" == "403" ]]; then
     add_check "jira_reachable" "pass"
   else

@@ -50,17 +50,15 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
       → QA Agent: full suite (auto-fix → tsc → lint → format → unit → integration tests)
 
   → CONFLICT RESOLUTION
-      → Run `scripts/conflict-resolution.sh {wt_path} {base_branch} {feature_branch} {ticket}`
+      → Run `scripts/conflict-resolution.sh {wt_path} {base_branch} {feature_branch} {ticket} --prd runs/{ticket}/PRD.json`
           → Exit 0 (clean): no conflicts, guards passed — proceed
           → Exit 1 (conflicts or guard issues):
               → If conflicts: Conflict Resolution Agent resolves file by file using PRD.json
                   → After resolution: `git add . && git commit` to complete merge
-                  → Re-run `scripts/regression-guard.sh {wt_path} {base_branch}`
-                  → Re-run `scripts/orphan-check.sh {wt_path} {base_branch}`
+                  → Re-run `scripts/conflict-resolution.sh` to produce fresh CONFLICT.json with actual guard results
               → If guard/orphan issues: Conflict Resolution Agent attempts one fix round
                   → Re-run guards after fix
                   → Still failing: ESCALATE
-              → Re-run `scripts/write-conflict-json.sh` with updated results
           → Exit 2 (escalate): disconnected integrations or merge error — ESCALATE
       → QA Agent: re-verify after merge (full suite)
 

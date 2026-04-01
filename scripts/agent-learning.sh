@@ -240,7 +240,7 @@ else:
         'standing_instruction': instruction,
         'first_detected': now,
         'last_seen': now,
-        'occurrences': 2,
+        'occurrences': 1,
         'runs_since_instruction': 0,
         'recurrences_after_instruction': 0,
         'runs_with_instruction': 0,
