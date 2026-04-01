@@ -134,8 +134,14 @@ console.log(JSON.stringify({ticket_id: data.ticket_id, repo: data.repo}));
     exit 1
   }
 
-  ticket_id=$(echo "$local_data" | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(d.ticket_id)")
-  repo_key=$(echo "$local_data" | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(d.repo)")
+  ticket_id=$(echo "$local_data" | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(d.ticket_id)") || {
+    echo '{"error":"Failed to parse ticket_id from local ticket data"}' >&2
+    exit 1
+  }
+  repo_key=$(echo "$local_data" | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(d.repo)") || {
+    echo '{"error":"Failed to parse repo from local ticket data"}' >&2
+    exit 1
+  }
 
   # Copy local JSON to runs/{ticket_id}/ticket.json for resume resilience
   runs_dir="$AGENT_ROOT/runs/$ticket_id"
@@ -169,4 +175,7 @@ const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 const extra = JSON.parse(process.argv[1]);
 Object.assign(d, extra);
 console.log(JSON.stringify(d));
-" "{\"ticket_id\":\"$ticket_id\",\"mode\":\"$mode\",\"ready_pr\":$ready_pr,\"pause\":$pause,\"stop\":$stop,\"input_source\":\"$input_source\",\"input_file\":$( [[ "$input_file" == "null" ]] && echo 'null' || echo "\"$input_file\"" ),\"auto_merge\":$auto_merge}"
+" "{\"ticket_id\":\"$ticket_id\",\"mode\":\"$mode\",\"ready_pr\":$ready_pr,\"pause\":$pause,\"stop\":$stop,\"input_source\":\"$input_source\",\"input_file\":$( [[ "$input_file" == "null" ]] && echo 'null' || echo "\"$input_file\"" ),\"auto_merge\":$auto_merge}" || {
+  echo '{"error":"Failed to assemble final output JSON"}' >&2
+  exit 1
+}

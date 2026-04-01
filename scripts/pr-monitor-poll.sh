@@ -24,16 +24,27 @@ fi
 
 TICKET_ID="${POSITIONAL[0]}"
 PR_NUMBER="${POSITIONAL[1]}"
-INTERVAL="${POSITIONAL[2]:-${AGENT_PR_MONITOR_INTERVAL:-60}}"
+INTERVAL="${POSITIONAL[2]:-${AGENT_PR_MONITOR_INTERVAL:-1200}}"
 
 REPO_FLAG=()
 [[ -n "$GITHUB_REPO" ]] && REPO_FLAG=(--repo "$GITHUB_REPO")
 
-# Fetch PR state from GitHub
-pr_json=$("$SCRIPT_DIR/retry-with-backoff.sh" --ticket="$TICKET_ID" 3 2000 -- gh pr view "$PR_NUMBER" ${REPO_FLAG[@]+"${REPO_FLAG[@]}"} --json state,statusCheckRollup,reviews,comments,mergeable,isDraft 2>&1) || {
-  echo "{\"error\":\"Failed to fetch PR #$PR_NUMBER: $pr_json\"}" >&2
+# Pre-flight rate limit check
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/rate-limit.sh"
+pre_gh_check "$TICKET_ID"
+
+# Fetch PR state from GitHub (stderr captured separately)
+gh_stderr=$(mktemp)
+_die_gh_fetch() {
+  local local_err
+  local_err=$(cat "$gh_stderr" 2>/dev/null || true)
+  rm -f "$gh_stderr"
+  echo "{\"error\":\"Failed to fetch PR #$PR_NUMBER: $local_err\"}" >&2
   exit 1
 }
+pr_json=$("$SCRIPT_DIR/retry-with-backoff.sh" --ticket="$TICKET_ID" 3 2000 -- "$SCRIPT_DIR/with-timeout.sh" "${AGENT_GH_TIMEOUT:-30}" gh pr view "$PR_NUMBER" ${REPO_FLAG[@]+"${REPO_FLAG[@]}"} --json state,statusCheckRollup,reviews,comments,mergeable,isDraft 2>"$gh_stderr") || _die_gh_fetch
+rm -f "$gh_stderr"
 
 # Parse into summary
 node -e "

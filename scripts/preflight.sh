@@ -41,6 +41,13 @@ for tool in git gh node npm gitleaks; do
   fi
 done
 
+# 1b. Optional tools (soft warning, not hard fail)
+if command -v bc &>/dev/null; then
+  add_check "tool_bc" "pass"
+else
+  add_check "tool_bc" "warn" "bc not found — jitter in retry-with-backoff.sh will use integer fallback"
+fi
+
 # 2. gh auth status
 if gh auth status &>/dev/null; then
   add_check "gh_auth" "pass"
@@ -127,8 +134,14 @@ fi
 
 # 8. Jira reachable
 if [[ -n "${JIRA_URL:-}" ]]; then
+  jira_token="${JIRA_API_TOKEN:-${JIRA_PAT:-}}"
+  if [[ -n "${JIRA_API_TOKEN:-}" ]]; then
+    auth_header="Authorization: Basic $(printf '%s:%s' "${JIRA_EMAIL:-}" "$jira_token" | base64)"
+  else
+    auth_header="Authorization: Bearer $jira_token"
+  fi
   http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$JIRA_URL/rest/api/2/myself" \
-    -H "Authorization: Basic $(printf '%s:%s' "${JIRA_EMAIL:-}" "${JIRA_API_TOKEN:-}" | base64)" 2>/dev/null) || http_code="000"
+    -H "$auth_header" 2>/dev/null) || http_code="000"
   if [[ "$http_code" == "200" || "$http_code" == "401" || "$http_code" == "403" ]]; then
     add_check "jira_reachable" "pass"
   else
@@ -138,14 +151,20 @@ else
   add_check "jira_reachable" "fail" "JIRA_URL not set, cannot check reachability"
 fi
 
+# 9. Resolve current GitHub user (non-blocking — empty string on failure)
+github_user="${GITHUB_USER:-}"
+if [[ -z "$github_user" ]]; then
+  github_user=$(gh api user --jq '.login' 2>/dev/null) || github_user=""
+fi
+
 # Assemble final JSON from checks file
 node -e "
   const fs=require('fs');
   const lines=fs.readFileSync(process.argv[1],'utf8').trim().split('\n').filter(Boolean);
   const checks=lines.map(l=>JSON.parse(l));
-  const result={overall:process.argv[2],checks};
+  const result={overall:process.argv[2],checks,github_user:process.argv[3]};
   process.stdout.write(JSON.stringify(result,null,2)+'\n');
-" "$CHECKS_FILE" "$overall"
+" "$CHECKS_FILE" "$overall" "$github_user"
 
 if [[ "$overall" == "fail" ]]; then
   exit 1

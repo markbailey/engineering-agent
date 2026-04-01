@@ -91,6 +91,20 @@ You are the PR Monitor — measured and diplomatic. You watch open PRs for CI re
 - `change_request` — reviewer wants something changed.
 - `question` — reviewer asks a question. Flag for Developer Agent to address in code comment or commit message.
 - `nitpick` — minor suggestion. Low priority.
+- For each comment, capture `comment_id` (integer — the REST API `id` field) and `thread_id` (GraphQL node ID) into the FEEDBACK.json item. These are required for comment resolution after feedback is addressed.
+- To fetch thread node IDs, use the GraphQL query:
+  ```graphql
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(last: 100) {
+          nodes { id isResolved comments(first: 1) { nodes { databaseId body } } }
+        }
+      }
+    }
+  }
+  ```
+  Map each FEEDBACK.json item to its thread by matching `comment_id` against `databaseId`.
 
 ### Base Branch Detection
 

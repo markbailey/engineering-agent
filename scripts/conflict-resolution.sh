@@ -2,21 +2,31 @@
 # conflict-resolution.sh — Full conflict resolution pipeline
 # Orchestrates: merge → regression guard → orphan check → CONFLICT.json
 # Args: $1=worktree_path $2=base_branch $3=feature_branch $4=ticket_id
-# Exit: 0=resolved, 1=needs agent resolution (conflicts), 2=escalate, 3=error
+# Exit: 0=resolved, 1=needs agent resolution (conflicts/guard issues), 2=escalate
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ $# -lt 4 ]]; then
-  echo "Usage: conflict-resolution.sh <worktree_path> <base_branch> <feature_branch> <ticket_id>" >&2
-  exit 3
+prd_flag=""
+positional=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prd=*) prd_flag="--prd ${1#--prd=}"; shift ;;
+    --prd) prd_flag="--prd $2"; shift 2 ;;
+    *) positional+=("$1"); shift ;;
+  esac
+done
+
+if [[ ${#positional[@]} -lt 4 ]]; then
+  echo "Usage: conflict-resolution.sh <worktree_path> <base_branch> <feature_branch> <ticket_id> [--prd <path>]" >&2
+  exit 2
 fi
 
-wt_path="$1"
-base_branch="$2"
-feature_branch="$3"
-ticket_id="$4"
+wt_path="${positional[0]}"
+base_branch="${positional[1]}"
+feature_branch="${positional[2]}"
+ticket_id="${positional[3]}"
 
 echo "=== Conflict Resolution: $ticket_id ==="
 echo "Worktree: $wt_path"
@@ -35,6 +45,7 @@ if [[ "$merge_status" == "error" ]]; then
   guard_json='{"compilation":"skipped","diff_analysis":"skipped","test_suite":"skipped","issues_found":[]}'
   orphan_json='{"status":"skipped","deleted_callsites":[],"renamed_references":[],"dead_exports":[],"disconnected_integrations":[]}'
   "$SCRIPT_DIR/write-conflict-json.sh" "$ticket_id" "$base_branch" "$feature_branch" "$merge_json" "$guard_json" "$orphan_json"
+  git -C "$wt_path" merge --abort 2>/dev/null || true
   exit 2
 fi
 
@@ -45,6 +56,7 @@ if [[ "$merge_status" == "conflicts" ]]; then
   guard_json='{"compilation":"skipped","diff_analysis":"skipped","test_suite":"skipped","issues_found":[]}'
   orphan_json='{"status":"skipped","deleted_callsites":[],"renamed_references":[],"dead_exports":[],"disconnected_integrations":[]}'
   "$SCRIPT_DIR/write-conflict-json.sh" "$ticket_id" "$base_branch" "$feature_branch" "$merge_json" "$guard_json" "$orphan_json"
+  git -C "$wt_path" merge --abort 2>/dev/null || true
   exit 1
 fi
 
@@ -77,7 +89,7 @@ if [[ -f "$wt_path/tsconfig.json" && -f "$SCRIPT_DIR/orphan-check-ts.js" ]]; the
 fi
 
 if [[ -z "$orphan_json" ]]; then
-  orphan_json=$("$SCRIPT_DIR/orphan-check.sh" "$wt_path" "$base_branch" 2>/dev/null)
+  orphan_json=$("$SCRIPT_DIR/orphan-check.sh" "$wt_path" "$base_branch" $prd_flag 2>/dev/null)
   orphan_exit=$?
 fi
 

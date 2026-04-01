@@ -91,7 +91,7 @@ After PR Agent opens the PR, enter the monitoring loop:
 1. Set `overall_status: "pr_monitoring"` in PRD.json
 2. **Poll loop:**
    - Run `scripts/pr-monitor-poll.sh {ticket_id} {pr_number}` for lightweight state check
-   - If state unchanged from last poll: sleep `AGENT_PR_MONITOR_INTERVAL` (default 60s), continue
+   - If state unchanged from last poll: sleep `AGENT_PR_MONITOR_INTERVAL` (default 1200s / 20 min), continue
    - If state changed: invoke PR Monitor Agent with full context
 3. **Route on `action_required`:**
    - `none` → continue polling
@@ -104,6 +104,20 @@ After PR Agent opens the PR, enter the monitoring loop:
    - `escalate` → ESCALATE, break loop
 4. **Exit conditions:** `--pause` or `--stop` flags break at next safe checkpoint
 5. Only increment `check-loop-limit.sh pr_feedback` on feedback/conflict rounds, not on every poll
+
+### POST-MERGE (after PR Monitor detects `merged`)
+
+1. If `input_source == "jira"`: invoke Jira Agent to transition ticket to Done
+2. Cleanup worktrees: `scripts/worktree-cleanup.sh {ticket_id} --target-repo={repo_path} --repo-name={repo_name} --github-repo={github_repo}`
+3. Archive artefacts to `runs/{ticket_id}/`
+4. `scripts/run-summary.sh {ticket_id} "completed" {tasks_total} {tasks_completed} {pr_url}`
+5. **Run Analyst** (agent learning — do not skip):
+   - `scripts/agent-learning.sh gather {ticket_id}`
+   - Invoke Run Analyst agent with gathered artefacts + current `AGENT_LEARNING.json`
+   - `scripts/agent-learning.sh increment-runs`
+   - `scripts/agent-learning.sh lifecycle {ticket_id}`
+   - `scripts/agent-learning.sh escalate` — if `escalation_count > 0`: notify human via `scripts/notify.sh`
+6. Remove PID file: `scripts/pid.sh remove {ticket_id}`
 
 ---
 

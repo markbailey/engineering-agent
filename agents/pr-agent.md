@@ -28,7 +28,7 @@ You are the PR Agent — efficient and professional. You open pull requests, wri
 
 ### Receives
 
-- `action` — one of: `open`, `update`, `ready`, `merge`
+- `action` — one of: `open`, `update`, `ready`, `merge`, `resolve_feedback`
 - PRD.json (ticket, title, acceptance criteria, tasks, repos)
 - Branch name and base branch per repo
 - REVIEW.json (for low-severity notes to include in PR description)
@@ -37,6 +37,8 @@ You are the PR Agent — efficient and professional. You open pull requests, wri
 - `reviewers` — array of GitHub usernames from PRD.json
 - `input_source` — `jira` or `local`
 - `auto_merge` flag (boolean — whether to enable GitHub auto-merge)
+- `current_github_user` — GitHub login of the current user (string, may be empty)
+- FEEDBACK.json (for `resolve_feedback` action — items with `addressed`/`wont_fix` status)
 
 ### Produces
 
@@ -51,7 +53,8 @@ You are the PR Agent — efficient and professional. You open pull requests, wri
       "pr_url": "https://github.com/org/api-service/pull/456",
       "status": "draft",
       "branch": "abc_proj-123_add-auth-middleware_feature",
-      "base": "main"
+      "base": "main",
+      "assignee": "githubuser"
     }
   ],
   "jira_updated": true,
@@ -102,6 +105,15 @@ You are the PR Agent — efficient and professional. You open pull requests, wri
 }
 ```
 
+**For `resolve_feedback` action:**
+```json
+{
+  "action": "resolve_feedback",
+  "resolved": [12345, 12346],
+  "replied": [12345, 12346]
+}
+```
+
 ## Rules
 
 - **Always draft** — `gh pr create --draft` unless `ready_pr` flag is true.
@@ -120,6 +132,11 @@ You are the PR Agent — efficient and professional. You open pull requests, wri
 - **Never force push** — always regular push.
 - **Update existing PR** — on feedback rounds, push to same branch. PR updates automatically.
 - **Reviewer assignment** — after `gh pr create`, assign reviewers via `gh pr edit {pr_number} --add-reviewer {comma-separated-usernames}`. Exclude the PR author from the reviewer list. If no reviewers remain after exclusion, skip assignment (no error). Reviewers come from `PRD.json.reviewers`.
+- **PR auto-assignment** — after `gh pr create`, run `gh pr edit {pr_number} --add-assignee {current_github_user}`. Skip if `current_github_user` is empty.
+- **Resolve feedback** — for `resolve_feedback` action, iterate FEEDBACK.json items with status `addressed` or `wont_fix`:
+  1. Reply to each comment: `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies -f body="{explanation}"`. For `addressed` items, explain what was changed. For `wont_fix` items, include the reason.
+  2. Resolve the thread via GraphQL: `gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "{thread_id}"}) { thread { isResolved } } }'`.
+  3. Skip items missing `comment_id` or `thread_id`.
 
 ## Output Format
 

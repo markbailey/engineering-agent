@@ -50,17 +50,15 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
       → QA Agent: full suite (auto-fix → tsc → lint → format → unit → integration tests)
 
   → CONFLICT RESOLUTION
-      → Run `scripts/conflict-resolution.sh {wt_path} {base_branch} {feature_branch} {ticket}`
+      → Run `scripts/conflict-resolution.sh {wt_path} {base_branch} {feature_branch} {ticket} --prd runs/{ticket}/PRD.json`
           → Exit 0 (clean): no conflicts, guards passed — proceed
           → Exit 1 (conflicts or guard issues):
               → If conflicts: Conflict Resolution Agent resolves file by file using PRD.json
                   → After resolution: `git add . && git commit` to complete merge
-                  → Re-run `scripts/regression-guard.sh {wt_path} {base_branch}`
-                  → Re-run `scripts/orphan-check.sh {wt_path} {base_branch}`
+                  → Re-run `scripts/conflict-resolution.sh` to produce fresh CONFLICT.json with actual guard results
               → If guard/orphan issues: Conflict Resolution Agent attempts one fix round
                   → Re-run guards after fix
                   → Still failing: ESCALATE
-              → Re-run `scripts/write-conflict-json.sh` with updated results
           → Exit 2 (escalate): disconnected integrations or merge error — ESCALATE
       → QA Agent: re-verify after merge (full suite)
 
@@ -88,6 +86,7 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
   → PR CREATION
       → Run `scripts/check-branch-before-push.sh {worktree}` — final push safety check
       → PR Agent: open PR as draft, write description
+          → Pass `current_github_user` (from preflight output) in PR Agent context
           → If input_source == "jira": link Jira, update Jira to "In Review"
           → If input_source == "local": omit Jira link, skip Jira transition
       → Exception: if --ready-pr flag was passed, mark as ready for review
@@ -96,7 +95,7 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
       → Set overall_status: "pr_monitoring"
       → Loop:
           → Poll: `scripts/pr-monitor-poll.sh {ticket_id} {pr_number} {AGENT_PR_MONITOR_INTERVAL}`
-          → If no change from last poll: sleep {AGENT_PR_MONITOR_INTERVAL} (default 60s), continue loop
+          → If no change from last poll: sleep {AGENT_PR_MONITOR_INTERVAL} (default 1200s / 20 min, configurable via AGENT_PR_MONITOR_INTERVAL), continue loop
           → If change detected: invoke PR Monitor Agent with full context
           → Route on action_required:
               → "none": continue loop
@@ -110,6 +109,7 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
                   → The Critic re-reviews (if code changes)
                   → `scripts/check-branch-before-push.sh {worktree}` before push
                   → PR Agent pushes updates
+                  → PR Agent action=resolve_feedback → reply to each addressed comment and resolve thread. For wont_fix items, reply with reason and resolve.
                   → If stalled or conflicting feedback: ESCALATE
                   → Continue loop
               → "conflict_resolution":
@@ -139,6 +139,10 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
       → Cleanup worktrees (all repos)
       → Archive artefacts to /runs/TICKET-ID/
       → `scripts/run-summary.sh {ticket_id} {status} {tasks_total} {tasks_completed} [pr_url]`
-      → Run Analyst: analyse last N runs for patterns → update AGENT_LEARNING.json
-          → Persistent patterns: escalate to human
+      → Run Analyst:
+          → `scripts/agent-learning.sh gather {ticket_id}`
+          → Invoke Run Analyst agent with gathered artefacts + current AGENT_LEARNING.json
+          → `scripts/agent-learning.sh increment-runs`
+          → `scripts/agent-learning.sh lifecycle {ticket_id}`
+          → `scripts/agent-learning.sh escalate` — if escalation_count > 0: notify human via `scripts/notify.sh`
 ```

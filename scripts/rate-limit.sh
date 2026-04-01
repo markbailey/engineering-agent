@@ -27,6 +27,19 @@ check_rate_limit() {
   remaining=$(echo "$raw" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['rate']['remaining'])" 2>/dev/null) || remaining="-1"
   reset_at=$(echo "$raw" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['rate']['reset'])" 2>/dev/null) || reset_at="0"
 
+  # If remaining is -1 (parse failure or unusual auth), validate token format
+  if [[ "$remaining" == "-1" ]]; then
+    local gh_token
+    gh_token=$(gh auth token 2>/dev/null) || gh_token=""
+    if [[ -n "$gh_token" ]]; then
+      # PATs start with ghp_ or github_pat_; fine-grained tokens with github_pat_
+      # OAuth/app tokens may be base64-like; warn if format is unrecognised
+      if [[ ! "$gh_token" =~ ^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_) ]]; then
+        echo "[rate-limit] Warning: GitHub token format unrecognised (not ghp_/github_pat_/gho_/ghu_/ghs_/ghr_ prefix). Rate limit check may be unreliable." >&2
+      fi
+    fi
+  fi
+
   # If remaining < 10, compute wait and sleep
   if [[ "$remaining" -ge 0 && "$remaining" -lt 10 ]]; then
     local now wait_secs

@@ -66,6 +66,14 @@
           "type": "string",
           "enum": ["pending", "addressed", "wont_fix", "escalated"],
           "description": "Resolution status"
+        },
+        "comment_id": {
+          "type": ["integer", "null"],
+          "description": "GitHub REST API comment ID (for reply/resolution)"
+        },
+        "thread_id": {
+          "type": ["string", "null"],
+          "description": "GitHub GraphQL node ID for the review thread (for resolveReviewThread mutation)"
         }
       }
     }

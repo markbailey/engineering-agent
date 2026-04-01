@@ -38,16 +38,23 @@ with_lock() {
     fi
   done
 
-  # Cleanup trap
-  trap "rmdir '$lockdir' 2>/dev/null" EXIT
+  # Save existing EXIT trap, then set ours (function-based to avoid quote issues)
+  local _prev_trap_body
+  _prev_trap_body=$(trap -p EXIT | sed "s/^trap -- '//;s/' EXIT$//" || true)
+  _prev_exit_handler() { eval "${_prev_trap_body:-:}"; }
+  trap "rmdir '$lockdir' 2>/dev/null; _prev_exit_handler" EXIT
 
   # Run command
   "$@"
   local rc=$?
 
-  # Release lock
+  # Release lock and restore previous trap
   rmdir "$lockdir" 2>/dev/null
-  trap - EXIT
+  if [[ -n "$_prev_trap_body" ]]; then
+    trap "$_prev_trap_body" EXIT
+  else
+    trap - EXIT
+  fi
 
   return $rc
 }
