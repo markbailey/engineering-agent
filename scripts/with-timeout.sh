@@ -96,6 +96,7 @@ if [[ "$PLATFORM" == "macos" ]]; then
     exit "$exit_code"
   fi
   # Fallback to background approach if gtimeout not installed
+  echo "Warning: gtimeout not found — using background process fallback (install coreutils: brew install coreutils)" >&2
 fi
 
 # --- Fallback: background process + sleep + kill (Windows/MSYS/unknown) ---
