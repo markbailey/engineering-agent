@@ -91,7 +91,7 @@ After PR Agent opens the PR, enter the monitoring loop:
 1. Set `overall_status: "pr_monitoring"` in PRD.json
 2. **Poll loop:**
    - Run `scripts/pr-monitor-poll.sh {ticket_id} {pr_number}` for lightweight state check
-   - If state unchanged from last poll: sleep `AGENT_PR_MONITOR_INTERVAL` (default 60s), continue
+   - If state unchanged from last poll: sleep `AGENT_PR_MONITOR_INTERVAL` (default 1200s / 20 min), continue
    - If state changed: invoke PR Monitor Agent with full context
 3. **Route on `action_required`:**
    - `none` → continue polling

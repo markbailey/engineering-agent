@@ -49,19 +49,37 @@ multipliers=(1 4 15)
 cmd_str="$*"
 
 attempt=0
+stderr_tmp=$(mktemp)
 while [[ $attempt -lt $max_retries ]]; do
   attempt=$((attempt + 1))
 
-  if "$@" 2>&1; then
+  if "$@" 2>"$stderr_tmp"; then
     if [[ $attempt -gt 1 ]]; then
       log_retry "INFO" "Retry succeeded on attempt $attempt/$max_retries: $cmd_str" \
         "{\"attempt\":$attempt,\"max_retries\":$max_retries,\"command\":\"$cmd_str\"}"
     fi
+    rm -f "$stderr_tmp"
     exit 0
   fi
 
+  # Capture stderr for rate-limit detection
+  local_stderr=$(cat "$stderr_tmp" 2>/dev/null || true)
+  # Forward stderr so callers still see it
+  [[ -n "$local_stderr" ]] && echo "$local_stderr" >&2
+
   if [[ $attempt -ge $max_retries ]]; then
     break
+  fi
+
+  # Detect rate limiting (HTTP 429, "rate limit", GitHub secondary limits)
+  if echo "$local_stderr" | grep -qiE 'rate limit|429|secondary rate|abuse detection'; then
+    echo "[retry] Rate limit detected. Checking GitHub rate limit reset..." >&2
+    # shellcheck disable=SC1091
+    source "$SCRIPT_DIR/rate-limit.sh"
+    check_rate_limit "$ticket_id" > /dev/null
+    log_retry "WARN" "Attempt $attempt/$max_retries rate-limited, waited for reset: $cmd_str" \
+      "{\"attempt\":$attempt,\"max_retries\":$max_retries,\"command\":\"$cmd_str\",\"rate_limited\":true}"
+    continue
   fi
 
   # Calculate delay
@@ -80,6 +98,7 @@ while [[ $attempt -lt $max_retries ]]; do
     "{\"attempt\":$attempt,\"max_retries\":$max_retries,\"delay_ms\":$delay_ms,\"jitter_ms\":$jitter,\"command\":\"$cmd_str\"}"
   sleep "$((delay_ms / 1000))"
 done
+rm -f "$stderr_tmp"
 
 echo "[retry] All $max_retries attempts exhausted." >&2
 log_retry "ERROR" "All $max_retries attempts exhausted: $cmd_str" \
