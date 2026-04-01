@@ -39,6 +39,9 @@ done
 
 ticket_lower="$(echo "$ticket_id" | tr '[:upper:]' '[:lower:]')"
 agent_code="${AGENT_EMPLOYEE_CODE:-}"
+if [[ -z "$agent_code" ]]; then
+  echo "WARNING: AGENT_EMPLOYEE_CODE is empty — cannot distinguish agent branches from human branches" >&2
+fi
 conflicts=()
 
 # Build git command prefix

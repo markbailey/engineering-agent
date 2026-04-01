@@ -8,15 +8,25 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ $# -lt 4 ]]; then
-  echo "Usage: conflict-resolution.sh <worktree_path> <base_branch> <feature_branch> <ticket_id>" >&2
+prd_flag=""
+positional=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prd=*) prd_flag="--prd ${1#--prd=}"; shift ;;
+    --prd) prd_flag="--prd $2"; shift 2 ;;
+    *) positional+=("$1"); shift ;;
+  esac
+done
+
+if [[ ${#positional[@]} -lt 4 ]]; then
+  echo "Usage: conflict-resolution.sh <worktree_path> <base_branch> <feature_branch> <ticket_id> [--prd <path>]" >&2
   exit 2
 fi
 
-wt_path="$1"
-base_branch="$2"
-feature_branch="$3"
-ticket_id="$4"
+wt_path="${positional[0]}"
+base_branch="${positional[1]}"
+feature_branch="${positional[2]}"
+ticket_id="${positional[3]}"
 
 echo "=== Conflict Resolution: $ticket_id ==="
 echo "Worktree: $wt_path"
@@ -79,7 +89,7 @@ if [[ -f "$wt_path/tsconfig.json" && -f "$SCRIPT_DIR/orphan-check-ts.js" ]]; the
 fi
 
 if [[ -z "$orphan_json" ]]; then
-  orphan_json=$("$SCRIPT_DIR/orphan-check.sh" "$wt_path" "$base_branch" 2>/dev/null)
+  orphan_json=$("$SCRIPT_DIR/orphan-check.sh" "$wt_path" "$base_branch" $prd_flag 2>/dev/null)
   orphan_exit=$?
 fi
 

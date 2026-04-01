@@ -152,6 +152,13 @@ json.dump(doc, sys.stdout, indent=2)
 print()
 " "$ticket_id" "$scan_time" "$report_file" "$scan_exit" > "$output_file"
 
+# Verify output was written successfully
+if [[ ! -s "$output_file" ]]; then
+  echo "ERROR: SECRETS.json was not written or is empty" >&2
+  rm -f "$report_file"
+  exit 1
+fi
+
 rm -f "$report_file"
 
 # Validate output against schema

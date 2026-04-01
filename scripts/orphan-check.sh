@@ -95,9 +95,23 @@ base_renames=$(git diff --diff-filter=R --name-status "$merge_base" "origin/$bas
 while IFS=$'\t' read -r _ old_name new_name; do
   [[ -z "$old_name" ]] && continue
   old_base=$(basename "${old_name%.*}")
-  # Check if our feature references the old name
+  # Check if our feature references the old name (scoped to PRD files if available)
   refs=$("$SCRIPT_DIR/with-timeout.sh" "${AGENT_GREP_TIMEOUT:-30}" grep -rl "$old_base" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null || true)
   refs=$(echo "$refs" | grep -v node_modules | grep -v ".git" || true)
+  # If PRD scoping active, filter refs to only PRD-listed files
+  if [[ -n "$refs" && ${#prd_files[@]} -gt 0 ]]; then
+    scoped_refs=""
+    for r in $refs; do
+      r_clean="${r#./}"
+      for pf in "${prd_files[@]}"; do
+        if [[ "$r_clean" == "$pf" ]]; then
+          scoped_refs+="$r"$'\n'
+          break
+        fi
+      done
+    done
+    refs="$scoped_refs"
+  fi
   if [[ -n "$refs" ]]; then
     status="fail"
     ref_files=$(echo "$refs" | tr '\n' ',' | sed 's/,$//')
@@ -130,6 +144,14 @@ integration_patterns="middleware|plugin|hook|provider|interceptor|guard|pipe|fil
 base_modified=$(git diff --name-only "$merge_base" "origin/$base_branch" 2>/dev/null || echo "")
 for f in $base_modified; do
   [[ ! -f "$f" ]] && continue
+  # If PRD scoping active, skip files not in PRD
+  if [[ ${#prd_files[@]} -gt 0 ]]; then
+    in_prd=false
+    for pf in "${prd_files[@]}"; do
+      if [[ "$f" == "$pf" ]]; then in_prd=true; break; fi
+    done
+    [[ "$in_prd" == "false" ]] && continue
+  fi
   if echo "$f" | grep -qiE "$integration_patterns"; then
     # Check if our feature adds to this integration layer
     our_changes=$(git diff "$merge_base" HEAD -- "$f" 2>/dev/null | grep "^+" | head -1 || true)
