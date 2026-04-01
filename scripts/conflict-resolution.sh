@@ -2,7 +2,7 @@
 # conflict-resolution.sh — Full conflict resolution pipeline
 # Orchestrates: merge → regression guard → orphan check → CONFLICT.json
 # Args: $1=worktree_path $2=base_branch $3=feature_branch $4=ticket_id
-# Exit: 0=resolved, 1=needs agent resolution (conflicts), 2=escalate, 3=error
+# Exit: 0=resolved, 1=needs agent resolution (conflicts/guard issues), 2=escalate
 
 set -uo pipefail
 
@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ $# -lt 4 ]]; then
   echo "Usage: conflict-resolution.sh <worktree_path> <base_branch> <feature_branch> <ticket_id>" >&2
-  exit 3
+  exit 2
 fi
 
 wt_path="$1"
@@ -35,6 +35,7 @@ if [[ "$merge_status" == "error" ]]; then
   guard_json='{"compilation":"skipped","diff_analysis":"skipped","test_suite":"skipped","issues_found":[]}'
   orphan_json='{"status":"skipped","deleted_callsites":[],"renamed_references":[],"dead_exports":[],"disconnected_integrations":[]}'
   "$SCRIPT_DIR/write-conflict-json.sh" "$ticket_id" "$base_branch" "$feature_branch" "$merge_json" "$guard_json" "$orphan_json"
+  git -C "$wt_path" merge --abort 2>/dev/null || true
   exit 2
 fi
 
@@ -45,6 +46,7 @@ if [[ "$merge_status" == "conflicts" ]]; then
   guard_json='{"compilation":"skipped","diff_analysis":"skipped","test_suite":"skipped","issues_found":[]}'
   orphan_json='{"status":"skipped","deleted_callsites":[],"renamed_references":[],"dead_exports":[],"disconnected_integrations":[]}'
   "$SCRIPT_DIR/write-conflict-json.sh" "$ticket_id" "$base_branch" "$feature_branch" "$merge_json" "$guard_json" "$orphan_json"
+  git -C "$wt_path" merge --abort 2>/dev/null || true
   exit 1
 fi
 
