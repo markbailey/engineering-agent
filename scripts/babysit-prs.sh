@@ -42,6 +42,20 @@ done
 
 mkdir -p "$LOCK_DIR" "$STATE_DIR" "$(dirname "$LOG_FILE")"
 
+# --- PID file: prevent duplicate instances ---
+PID_FILE="$HOME/.claude/babysit/babysit.pid"
+if [[ -f "$PID_FILE" ]]; then
+  existing_pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
+  if [[ -n "$existing_pid" ]] && kill -0 "$existing_pid" 2>/dev/null; then
+    echo "ERROR: Babysitter already running (PID $existing_pid). Exiting." >&2
+    exit 1
+  fi
+  # Stale PID file — process is gone
+  rm -f "$PID_FILE"
+fi
+echo $$ > "$PID_FILE"
+trap 'rm -f "$PID_FILE"' EXIT
+
 # --- Logging (JSONL to babysit.log + stderr) ---
 babysit_log() {
   local level="$1" repo="$2" pr="$3" action="$4" msg="$5"
@@ -65,6 +79,7 @@ cleanup_children() {
     kill -TERM "$pid" 2>/dev/null || true
   done
   wait 2>/dev/null || true
+  rm -f "$PID_FILE"
   babysit_log "INFO" "-" 0 "shutdown" "Babysitter stopped (signal received)"
   exit 0
 }
@@ -84,8 +99,17 @@ count_active_locks() {
 clean_stale_locks() {
   for lockdir in "$LOCK_DIR"/*.lock; do
     [[ -d "$lockdir" ]] || continue
-    # Check if lock dir is older than threshold
-    if find "$lockdir" -maxdepth 0 -mmin +"$LOCK_STALE_MINUTES" 2>/dev/null | grep -q .; then
+    # Check if lock is older than threshold using created timestamp file
+    local lock_created lock_age_minutes now_epoch
+    now_epoch=$(date +%s)
+    lock_created=$(cat "$lockdir/created" 2>/dev/null || echo "")
+    if [[ -z "$lock_created" ]]; then
+      # No created file — treat as stale
+      lock_age_minutes=$((LOCK_STALE_MINUTES + 1))
+    else
+      lock_age_minutes=$(( (now_epoch - lock_created) / 60 ))
+    fi
+    if (( lock_age_minutes >= LOCK_STALE_MINUTES )); then
       # Stale — clean up associated worktree if recorded
       local wt_path
       wt_path=$(cat "$lockdir/wt_path" 2>/dev/null || echo "")
@@ -117,7 +141,7 @@ reap_children() {
 
 # --- Check retry budget for a PR+action ---
 check_retry_budget() {
-  local repo="$1" pr="$2" action="$3"
+  local repo="$1" pr="$2" action="$3" head_sha="$4"
   local state_file="$STATE_DIR/${repo//\//_}_${pr}.json"
 
   if [[ ! -f "$state_file" ]]; then
@@ -128,11 +152,9 @@ check_retry_budget() {
   attempts=$(jq -r ".${action}_attempts // 0" "$state_file" 2>/dev/null || echo 0)
 
   # Reset budget if HEAD has changed since last attempt
-  local last_head current_head
+  local last_event
   last_event=$(jq -r ".last_event // \"\"" "$state_file" 2>/dev/null || echo "")
-  pre_gh_check "BABYSIT" 2>/dev/null || true
-  current_head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid 2>/dev/null || echo "")
-  if [[ -n "$current_head" && "$current_head" != "$last_event" ]]; then
+  if [[ -n "$head_sha" && "$head_sha" != "$last_event" ]]; then
     return 0  # new commit resets budget
   fi
 
@@ -197,11 +219,11 @@ while true; do
     [[ -z "$REPO" ]] && continue
 
     # Rate limit check
-    pre_gh_check "BABYSIT" 2>/dev/null || true
+    pre_gh_check "" || true
 
     # List open PRs authored by me
     pr_list=$(gh pr list --repo "$REPO" --author "@me" --state open \
-      --json number,title,labels,headRefName,isDraft 2>/dev/null) || {
+      --json number,title,labels,headRefName,isDraft,headRefOid 2>/dev/null) || {
       babysit_log "ERROR" "$REPO" 0 "list" "Failed to list PRs"
       continue
     }
@@ -220,6 +242,7 @@ while true; do
       pr_branch=$(echo "$pr_json" | jq -r '.headRefName')
       pr_draft=$(echo "$pr_json" | jq -r '.isDraft')
       pr_labels=$(echo "$pr_json" | jq -c '.labels')
+      pr_head_sha=$(echo "$pr_json" | jq -r '.headRefOid')
 
       # Skip drafts
       if [[ "$pr_draft" == "true" ]]; then
@@ -248,14 +271,14 @@ while true; do
       fi
 
       # Poll PR state
-      pre_gh_check "BABYSIT" 2>/dev/null || true
+      pre_gh_check "" || true
       poll_output=$("$SCRIPT_DIR/pr-monitor-poll.sh" "BABYSIT" "$pr_number" --github-repo="$REPO" 2>/dev/null) || {
         babysit_log "WARN" "$REPO" "$pr_number" "poll" "Poll failed"
         continue
       }
 
       # Check unresolved review threads
-      pre_gh_check "BABYSIT" 2>/dev/null || true
+      pre_gh_check "" || true
       unresolved_threads=$(gh pr view "$pr_number" --repo "$REPO" --json reviewThreads \
         --jq '[.reviewThreads[] | select(.isResolved == false)] | length' 2>/dev/null || echo 0)
 
@@ -267,7 +290,7 @@ while true; do
       fi
 
       # Check retry budget
-      if ! check_retry_budget "$REPO" "$pr_number" "$action"; then
+      if ! check_retry_budget "$REPO" "$pr_number" "$action" "$pr_head_sha"; then
         babysit_log "WARN" "$REPO" "$pr_number" "$action" "Attempts exhausted ($MAX_ATTEMPTS/$MAX_ATTEMPTS) — skipping"
         "$SCRIPT_DIR/notify.sh" "BABYSIT" "escalation" \
           "PR #$pr_number ($REPO): $action failed after $MAX_ATTEMPTS attempts — needs human attention" \
@@ -295,10 +318,10 @@ while true; do
     [[ "$SHUTDOWN" == true ]] && break
     [[ -z "$REPO" ]] && continue
 
-    pre_gh_check "BABYSIT" 2>/dev/null || true
+    pre_gh_check "" || true
 
     review_list=$(gh pr list --repo "$REPO" --search "review-requested:@me" --state open \
-      --json number,title,labels,headRefName,isDraft,author 2>/dev/null) || {
+      --json number,title,labels,headRefName,isDraft,author,headRefOid 2>/dev/null) || {
       babysit_log "ERROR" "$REPO" 0 "list" "Failed to list review-requested PRs"
       continue
     }
@@ -316,6 +339,7 @@ while true; do
       pr_branch=$(echo "$pr_json" | jq -r '.headRefName')
       pr_draft=$(echo "$pr_json" | jq -r '.isDraft')
       pr_labels=$(echo "$pr_json" | jq -c '.labels')
+      pr_head_sha=$(echo "$pr_json" | jq -r '.headRefOid')
 
       # Skip drafts
       if [[ "$pr_draft" == "true" ]]; then
@@ -344,7 +368,7 @@ while true; do
       fi
 
       # Check retry budget for review
-      if ! check_retry_budget "$REPO" "$pr_number" "review"; then
+      if ! check_retry_budget "$REPO" "$pr_number" "review" "$pr_head_sha"; then
         babysit_log "WARN" "$REPO" "$pr_number" "review" "Attempts exhausted ($MAX_ATTEMPTS/$MAX_ATTEMPTS) — skipping"
         continue
       fi

@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # shellcheck source=/dev/null
-source "$REPO_ROOT/.env"
+[[ -f "$REPO_ROOT/.env" ]] && source "$REPO_ROOT/.env"
 
 MAX_ATTEMPTS="${BABYSIT_MAX_ATTEMPTS:-2}"
 LOCK_STALE_MINUTES="${BABYSIT_LOCK_STALE_MINUTES:-60}"
@@ -123,7 +123,16 @@ else
   babysit_log "INFO" "Updating existing worktree"
   git -C "$wt_path" fetch origin
   git -C "$wt_path" checkout "$BRANCH" 2>/dev/null || true
-  git -C "$wt_path" reset --hard "origin/$BRANCH"
+  git -C "$wt_path" pull --ff-only origin "$BRANCH" || {
+    babysit_log "WARN" "ff-only pull failed, recreating worktree"
+    git -C "$repo_path" worktree remove "$wt_path" --force 2>/dev/null || true
+    git -C "$repo_path" worktree add "$wt_path" "origin/$BRANCH" --detach
+    git -C "$wt_path" checkout -B "$BRANCH" "origin/$BRANCH"
+    "$SCRIPT_DIR/worktree-init.sh" "$wt_path" "$repo_path" || {
+      babysit_log "ERROR" "Worktree re-init failed"
+      exit 1
+    }
+  }
 fi
 
 cd "$wt_path"
@@ -203,7 +212,7 @@ STEPS:
 4. Analyze: correctness, security (OWASP top 10), performance, readability, test coverage, edge cases
 
 POSTING YOUR REVIEW:
-Post a single review with inline file comments via the GitHub API. Write a JSON file /tmp/review-$PR.json:
+Post a single review with inline file comments via the GitHub API. Write a JSON file using: review_file=\$(mktemp /tmp/review-${REPO//\//_}-$PR-XXXXXX.json)
 {
   \"body\": \"## Code Review\\n\\nSummary of findings.\\n\\n🤖 Reviewed by [Claude Code](https://claude.com/claude-code)\",
   \"event\": \"REQUEST_CHANGES or APPROVE\",
@@ -212,7 +221,7 @@ Post a single review with inline file comments via the GitHub API. Write a JSON 
   ]
 }
 
-Then submit: gh api repos/$REPO/pulls/$PR/reviews --input /tmp/review-$PR.json
+Then submit: gh api repos/$REPO/pulls/$PR/reviews --input \$review_file
 
 VERDICT RULES:
 - If ANY correctness, security, or logic issues found → REQUEST_CHANGES with inline comments
@@ -225,7 +234,7 @@ RULES:
 - Don't flag import order or whitespace
 - Focus on logic bugs, security holes, missing edge cases, untested paths
 - Always end review body with: 🤖 Reviewed by [Claude Code](https://claude.com/claude-code)
-- Clean up /tmp/review-$PR.json after posting" \
+- Clean up \$review_file after posting" \
       || exit_code=$?
     ;;
   *)
