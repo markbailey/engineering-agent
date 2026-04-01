@@ -48,3 +48,5 @@
 | `scripts/aggregate-metrics.sh` | Aggregate metrics across all runs → JSON summary to stdout |
 | `scripts/dependency-graph.sh` | Visualize ticket dependency graph (JSON, ASCII, DOT output) |
 | `scripts/revert-run.sh` | Mechanical revert pipeline: revert merge commit, test, secret scan, open PR |
+| `scripts/babysit-prs.sh` | Continuous PR babysitter — discover PRs, poll state, dispatch actions |
+| `scripts/babysit-pr-action.sh` | Per-PR handler — lock, worktree, Claude dispatch, verify, cleanup |
