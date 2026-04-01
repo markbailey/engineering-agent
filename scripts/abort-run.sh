@@ -50,6 +50,11 @@ summary_written="false"
 # 1. Close open draft PR matching ticket
 if [[ -n "$github_repo" ]]; then
   pr_number=$(gh pr list --repo "$github_repo" --search "$ticket_id" --state open --json number,isDraft --jq '.[0].number' 2>/dev/null || echo "")
+  # Validate PR number is numeric
+  if [[ -n "$pr_number" && "$pr_number" != "null" && ! "$pr_number" =~ ^[0-9]+$ ]]; then
+    echo "Warning: invalid PR number '$pr_number', skipping close" >&2
+    pr_number=""
+  fi
   if [[ -n "$pr_number" && "$pr_number" != "null" ]]; then
     if gh pr close "$pr_number" --repo "$github_repo" 2>/dev/null; then
       pr_closed="true"

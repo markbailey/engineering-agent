@@ -41,6 +41,13 @@ for tool in git gh node npm gitleaks; do
   fi
 done
 
+# 1b. Optional tools (soft warning, not hard fail)
+if command -v bc &>/dev/null; then
+  add_check "tool_bc" "pass"
+else
+  add_check "tool_bc" "warn" "bc not found — jitter in retry-with-backoff.sh will use integer fallback"
+fi
+
 # 2. gh auth status
 if gh auth status &>/dev/null; then
   add_check "gh_auth" "pass"
