@@ -139,6 +139,10 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
       → Cleanup worktrees (all repos)
       → Archive artefacts to /runs/TICKET-ID/
       → `scripts/run-summary.sh {ticket_id} {status} {tasks_total} {tasks_completed} [pr_url]`
-      → Run Analyst: analyse last N runs for patterns → update AGENT_LEARNING.json
-          → Persistent patterns: escalate to human
+      → Run Analyst:
+          → `scripts/agent-learning.sh gather {ticket_id}`
+          → Invoke Run Analyst agent with gathered artefacts + current AGENT_LEARNING.json
+          → `scripts/agent-learning.sh increment-runs`
+          → `scripts/agent-learning.sh lifecycle {ticket_id}`
+          → `scripts/agent-learning.sh escalate` — if escalation_count > 0: notify human via `scripts/notify.sh`
 ```

@@ -38,16 +38,22 @@ with_lock() {
     fi
   done
 
-  # Cleanup trap
-  trap "rmdir '$lockdir' 2>/dev/null" EXIT
+  # Save existing EXIT trap, then set ours
+  local _prev_trap
+  _prev_trap=$(trap -p EXIT || true)
+  trap "rmdir '$lockdir' 2>/dev/null; ${_prev_trap:+eval \"\${_prev_trap#trap -- }\";}" EXIT
 
   # Run command
   "$@"
   local rc=$?
 
-  # Release lock
+  # Release lock and restore previous trap
   rmdir "$lockdir" 2>/dev/null
-  trap - EXIT
+  if [[ -n "$_prev_trap" ]]; then
+    eval "$_prev_trap"
+  else
+    trap - EXIT
+  fi
 
   return $rc
 }
