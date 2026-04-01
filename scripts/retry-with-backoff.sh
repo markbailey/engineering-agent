@@ -15,6 +15,10 @@ if [[ -f "$AGENT_ROOT/.env" ]]; then
   source "$AGENT_ROOT/.env"
 fi
 
+# Source rate-limit.sh once (used inside retry loop for rate-limit detection)
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/rate-limit.sh"
+
 # Optional --ticket=ID for logging
 ticket_id=""
 if [[ "${1:-}" =~ ^--ticket=(.+)$ ]]; then
@@ -74,8 +78,6 @@ while [[ $attempt -lt $max_retries ]]; do
   # Detect rate limiting (HTTP 429, "rate limit", GitHub secondary limits)
   if echo "$local_stderr" | grep -qiE 'rate limit|429|secondary rate|abuse detection'; then
     echo "[retry] Rate limit detected. Checking GitHub rate limit reset..." >&2
-    # shellcheck disable=SC1091
-    source "$SCRIPT_DIR/rate-limit.sh"
     check_rate_limit "$ticket_id" > /dev/null
     log_retry "WARN" "Attempt $attempt/$max_retries rate-limited, waited for reset: $cmd_str" \
       "{\"attempt\":$attempt,\"max_retries\":$max_retries,\"command\":\"$cmd_str\",\"rate_limited\":true}"

@@ -39,10 +39,10 @@ base_branch="${POSITIONAL[1]}"
 threshold="${AGENT_PR_SIZE_WARNING_FILES:-20}"
 if [[ -n "$project_key" && -f "$AGENT_ROOT/repos.json" ]]; then
   repo_threshold=$(node -e "
-    const r = require('$AGENT_ROOT/repos.json');
-    const t = (r.repos['$project_key'] || {}).pr_size_threshold;
+    const r = require(process.argv[1]);
+    const t = (r.repos[process.argv[2]] || {}).pr_size_threshold;
     if (t) process.stdout.write(String(t));
-  " 2>/dev/null || true)
+  " "$AGENT_ROOT/repos.json" "$project_key" 2>/dev/null || true)
   if [[ -n "$repo_threshold" ]]; then
     threshold="$repo_threshold"
   fi
