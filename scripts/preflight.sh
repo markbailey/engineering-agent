@@ -138,14 +138,20 @@ else
   add_check "jira_reachable" "fail" "JIRA_URL not set, cannot check reachability"
 fi
 
+# 9. Resolve current GitHub user (non-blocking — empty string on failure)
+github_user="${GITHUB_USER:-}"
+if [[ -z "$github_user" ]]; then
+  github_user=$(gh api user --jq '.login' 2>/dev/null) || github_user=""
+fi
+
 # Assemble final JSON from checks file
 node -e "
   const fs=require('fs');
   const lines=fs.readFileSync(process.argv[1],'utf8').trim().split('\n').filter(Boolean);
   const checks=lines.map(l=>JSON.parse(l));
-  const result={overall:process.argv[2],checks};
+  const result={overall:process.argv[2],checks,github_user:process.argv[3]};
   process.stdout.write(JSON.stringify(result,null,2)+'\n');
-" "$CHECKS_FILE" "$overall"
+" "$CHECKS_FILE" "$overall" "$github_user"
 
 if [[ "$overall" == "fail" ]]; then
   exit 1

@@ -88,6 +88,7 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
   → PR CREATION
       → Run `scripts/check-branch-before-push.sh {worktree}` — final push safety check
       → PR Agent: open PR as draft, write description
+          → Pass `current_github_user` (from preflight output) in PR Agent context
           → If input_source == "jira": link Jira, update Jira to "In Review"
           → If input_source == "local": omit Jira link, skip Jira transition
       → Exception: if --ready-pr flag was passed, mark as ready for review
@@ -96,7 +97,7 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
       → Set overall_status: "pr_monitoring"
       → Loop:
           → Poll: `scripts/pr-monitor-poll.sh {ticket_id} {pr_number} {AGENT_PR_MONITOR_INTERVAL}`
-          → If no change from last poll: sleep {AGENT_PR_MONITOR_INTERVAL} (default 60s), continue loop
+          → If no change from last poll: sleep {AGENT_PR_MONITOR_INTERVAL} (default 1200s / 20 min, configurable via AGENT_PR_MONITOR_INTERVAL), continue loop
           → If change detected: invoke PR Monitor Agent with full context
           → Route on action_required:
               → "none": continue loop
@@ -110,6 +111,7 @@ Orchestrator receives: TICKET-ID or FILE-PATH (provided externally)
                   → The Critic re-reviews (if code changes)
                   → `scripts/check-branch-before-push.sh {worktree}` before push
                   → PR Agent pushes updates
+                  → PR Agent action=resolve_feedback → reply to each addressed comment and resolve thread. For wont_fix items, reply with reason and resolve.
                   → If stalled or conflicting feedback: ESCALATE
                   → Continue loop
               → "conflict_resolution":
