@@ -30,7 +30,7 @@ REPO_FLAG=()
 [[ -n "$GITHUB_REPO" ]] && REPO_FLAG=(--repo "$GITHUB_REPO")
 
 # Fetch PR state from GitHub
-pr_json=$("$SCRIPT_DIR/retry-with-backoff.sh" --ticket="$TICKET_ID" 3 2000 -- gh pr view "$PR_NUMBER" ${REPO_FLAG[@]+"${REPO_FLAG[@]}"} --json state,statusCheckRollup,reviews,comments,mergeable,isDraft 2>&1) || {
+pr_json=$("$SCRIPT_DIR/retry-with-backoff.sh" --ticket="$TICKET_ID" 3 2000 -- "$SCRIPT_DIR/with-timeout.sh" "${AGENT_GH_TIMEOUT:-30}" gh pr view "$PR_NUMBER" ${REPO_FLAG[@]+"${REPO_FLAG[@]}"} --json state,statusCheckRollup,reviews,comments,mergeable,isDraft 2>&1) || {
   echo "{\"error\":\"Failed to fetch PR #$PR_NUMBER: $pr_json\"}" >&2
   exit 1
 }

@@ -18,7 +18,12 @@ fi
 
 ticket_id="$1"
 loop_name="$2"
-max_iterations="$3"
+# Read max from env var (loop-specific), fall back to argument
+case "$loop_name" in
+  critic_review) max_iterations="${AGENT_MAX_CRITIC_ROUNDS:-$3}" ;;
+  pr_feedback)   max_iterations="${AGENT_MAX_PR_FEEDBACK_ROUNDS:-$3}" ;;
+  *)             max_iterations="$3" ;;
+esac
 action="$4"
 
 loop_file="$RUNS_DIR/$ticket_id/loops.json"

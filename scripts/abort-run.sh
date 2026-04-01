@@ -49,9 +49,9 @@ summary_written="false"
 
 # 1. Close open draft PR matching ticket
 if [[ -n "$github_repo" ]]; then
-  pr_number=$(gh pr list --repo "$github_repo" --search "$ticket_id" --state open --json number,isDraft --jq '.[0].number' 2>/dev/null || echo "")
+  pr_number=$("$SCRIPT_DIR/with-timeout.sh" "${AGENT_GH_TIMEOUT:-30}" gh pr list --repo "$github_repo" --search "$ticket_id" --state open --json number,isDraft --jq '.[0].number' 2>/dev/null || echo "")
   if [[ -n "$pr_number" && "$pr_number" != "null" ]]; then
-    if gh pr close "$pr_number" --repo "$github_repo" 2>/dev/null; then
+    if "$SCRIPT_DIR/with-timeout.sh" "${AGENT_GH_TIMEOUT:-30}" gh pr close "$pr_number" --repo "$github_repo" 2>/dev/null; then
       pr_closed="true"
     fi
   fi

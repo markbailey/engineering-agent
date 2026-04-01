@@ -31,8 +31,13 @@ case "$issue_type" in
   *)                branch_type="feature" ;;
 esac
 
-# Clean title: strip non-alphanumeric (keep hyphens and spaces), collapse whitespace
-description=$(echo "$title" | sed 's/[^a-z0-9 -]//g' | sed 's/  */ /g' | sed 's/^ //;s/ $//')
+# Transliterate Unicode to ASCII (e.g. ü→u, é→e); fall back to strip if iconv unavailable
+if command -v iconv &>/dev/null; then
+  description=$(echo "$title" | iconv -t ASCII//TRANSLIT 2>/dev/null || echo "$title")
+else
+  description="$title"
+fi
+description=$(echo "$description" | sed 's/[^a-z0-9 -]//g' | sed 's/  */ /g' | sed 's/^ //;s/ $//')
 
 # Spaces to hyphens
 description="${description// /-}"

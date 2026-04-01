@@ -48,7 +48,7 @@ if [[ -n "$target_repo" ]]; then
 fi
 
 # 1. Check remote branches matching ticket ID
-"${git_cmd[@]}" fetch origin --prune 2>/dev/null || true
+"$SCRIPT_DIR/with-timeout.sh" "${AGENT_GH_TIMEOUT:-30}" "${git_cmd[@]}" fetch origin --prune 2>/dev/null || true
 matching_branches=$("${git_cmd[@]}" branch -r 2>/dev/null | grep -i "$ticket_lower" | sed 's/^ *//' || true)
 
 if [[ -n "$matching_branches" ]]; then
@@ -69,7 +69,7 @@ gh_args=(pr list --search "$ticket_id" --state open --json number,author,headRef
 if [[ -n "$github_repo" ]]; then
   gh_args+=(--repo "$github_repo")
 fi
-pr_list=$(gh "${gh_args[@]}" 2>/dev/null || echo "[]")
+pr_list=$("$SCRIPT_DIR/with-timeout.sh" "${AGENT_GH_TIMEOUT:-30}" gh "${gh_args[@]}" 2>/dev/null || echo "[]")
 
 if [[ "$pr_list" != "[]" && "$pr_list" != "" ]]; then
   pr_count=$(echo "$pr_list" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
