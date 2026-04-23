@@ -10,7 +10,8 @@
 | `scripts/validate-branch-name.sh` | Validate branch name format + employee code |
 | `scripts/discover-non-committable.sh` | Find .env, .pem, etc. to copy into worktrees |
 | `scripts/worktree-create.sh` | Create git worktree for a ticket |
-| `scripts/worktree-init.sh` | Initialise worktree (env, deps, tsc) |
+| `scripts/worktree-init.sh` | Initialise worktree (env, deps, tsc, commit hooks) |
+| `scripts/install-coauthor-hook.sh` | Install per-worktree prepare-commit-msg hook that auto-adds the Claude co-author trailer |
 | `scripts/worktree-cleanup.sh` | Remove worktree + branch after merge |
 | `scripts/worktree-scan.sh` | Detect orphaned worktrees |
 | `scripts/validate-commit-msg.sh` | Validate Conventional Commits format |

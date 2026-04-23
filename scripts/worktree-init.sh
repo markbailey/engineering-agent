@@ -86,6 +86,14 @@ if $check_only; then
   fi
 fi
 
+# --- Step 0: Install Claude co-author commit hook ---
+# Idempotent — runs on every init (fresh or resumed) to ensure the hook
+# is always present before any agent commits. Failure here is non-fatal
+# (missing trailer is a hygiene issue, not a workflow-blocker).
+if ! "$SCRIPT_DIR/install-coauthor-hook.sh" "$wt_path" >/dev/null; then
+  echo "WARNING: failed to install Claude co-author commit hook — commits may miss the trailer" >&2
+fi
+
 # --- Step 1: Copy non-committable files ---
 if $needs_env || [[ ! -f "$wt_path/.env" ]]; then
   echo "[init] Copying non-committable files..."

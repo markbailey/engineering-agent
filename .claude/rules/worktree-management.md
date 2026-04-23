@@ -34,7 +34,12 @@ Mandatory before any agent work:
    - After install: `git checkout -- .` to reset formatting drift from postinstall scripts
    - If fails: auto-repair system triggers
 
-3. **Validate:**
+3. **Install commit hooks:**
+   - `scripts/install-coauthor-hook.sh {wt_path}` — idempotently installs a per-worktree `prepare-commit-msg` hook that auto-appends `Co-Authored-By: Claude <noreply@anthropic.com>` to every commit message (task commits, QA auto-fix, merges, reverts)
+   - Runs on every init (fresh or resumed) so resuming an older worktree picks up the hook
+   - Failure is non-fatal (logged as a warning) — commits proceed but may miss the trailer
+
+4. **Validate:**
    - Verify `.env` exists
    - Verify `node_modules` is non-empty
    - `tsc --noEmit` — baseline compile check
