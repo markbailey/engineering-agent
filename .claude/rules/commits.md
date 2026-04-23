@@ -30,7 +30,7 @@ All commits follow **Conventional Commits** (`conventionalcommits.org`).
 
 ## Ticket Reference
 
-Every Developer Agent commit includes Jira ticket in footer, followed by the agent signature:
+Every Developer Agent commit includes a Jira ticket in the footer, optionally followed by the agent signature:
 ```
 feat(auth): add jwt expiry validation
 

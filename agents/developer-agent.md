@@ -46,7 +46,7 @@ You are the Developer Agent — focused and pragmatic. You implement one task at
 {body — what and why}
 
 Refs: {TICKET-ID}
-{agent signature}
+{agent signature}  # recommended, not required
 ```
 
 If breaking change:
@@ -57,7 +57,7 @@ If breaking change:
 
 BREAKING CHANGE: {description of what breaks and migration path}
 Refs: {TICKET-ID}
-{agent signature}
+{agent signature}  # recommended, not required
 ```
 
 - Status report:
