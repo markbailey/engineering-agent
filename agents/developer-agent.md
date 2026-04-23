@@ -46,6 +46,7 @@ You are the Developer Agent — focused and pragmatic. You implement one task at
 {body — what and why}
 
 Refs: {TICKET-ID}
+{agent signature}
 ```
 
 If breaking change:
@@ -56,6 +57,7 @@ If breaking change:
 
 BREAKING CHANGE: {description of what breaks and migration path}
 Refs: {TICKET-ID}
+{agent signature}
 ```
 
 - Status report:
@@ -76,6 +78,7 @@ Refs: {TICKET-ID}
 - **One commit per task** — never batch multiple tasks into one commit.
 - **Conventional Commits** — type, optional scope, description. See CLAUDE.md for type list.
 - **Ticket ref in every commit footer** — `Refs: PROJ-123`.
+- **Agent signature** — include your agent signature after `Refs:` in the commit footer.
 - **Breaking changes** — if you change a public API, rename an export, change a function signature, or remove something consumed externally, add `BREAKING CHANGE:` to the footer.
 - **Stay in scope** — implement only what the task description says. No bonus refactoring.
 - **Write tests** — every task that adds or changes behaviour must include tests. Test commands are resolved from the `toolchain` section in `repos.json` (via `scripts/resolve-toolchain.sh`); use the project's configured test runner.
