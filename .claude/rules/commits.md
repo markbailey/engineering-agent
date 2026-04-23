@@ -11,7 +11,7 @@ All commits follow **Conventional Commits** (`conventionalcommits.org`).
 
 {optional body — what and why, not how}
 
-{optional footer — breaking changes, ticket reference}
+{required footer for Developer Agent commits — Refs: TICKET-ID and any breaking changes; agent signature is recommended but not enforced by the validator}
 ```
 
 ## Commit Types
@@ -30,13 +30,14 @@ All commits follow **Conventional Commits** (`conventionalcommits.org`).
 
 ## Ticket Reference
 
-Every Developer Agent commit includes Jira ticket in footer:
+Every Developer Agent commit includes a Jira ticket in the footer, optionally followed by the agent signature:
 ```
 feat(auth): add jwt expiry validation
 
 Validates token expiry and returns 401 if expired.
 
 Refs: PROJ-123
+{agent signature}
 ```
 
 ## Granularity
@@ -52,10 +53,11 @@ Document in commit footer:
 ```
 BREAKING CHANGE: validateToken is no longer exported. Use verifyToken instead.
 Refs: PROJ-123
+{agent signature}
 ```
 
 The Critic flags undocumented breaking changes at **high** severity.
 
 ## Commit Validation
 
-QA Agent validates every Developer Agent commit against this convention before marking task complete. Invalid → rejected, Developer Agent rewrites.
+QA Agent validates every Developer Agent commit against this convention before marking task complete. Invalid → rejected, Developer Agent rewrites. Validation enforces commit type, description format, line length, and `Refs: TICKET-ID` footer. The agent signature is recommended but not currently enforced by the validator.
