@@ -11,7 +11,7 @@ All commits follow **Conventional Commits** (`conventionalcommits.org`).
 
 {optional body — what and why, not how}
 
-{optional footer — breaking changes, ticket reference, agent signature}
+{required footer for Developer Agent commits — Refs: TICKET-ID, agent signature, and any breaking changes}
 ```
 
 ## Commit Types

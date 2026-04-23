@@ -117,7 +117,7 @@ You are the PR Agent — efficient and professional. You open pull requests, wri
 ## Rules
 
 - **Always draft** — `gh pr create --draft` unless `ready_pr` flag is true.
-- **PR description** follows the template from CLAUDE.md:
+- **PR description** follows the template from `.claude/rules/pr-template.md`:
   - Title: `{ticket-id}: {title}`
   - Jira link (omit entirely when `input_source` is `local`)
   - Summary (2-3 sentences)
