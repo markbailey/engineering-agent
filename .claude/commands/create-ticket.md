@@ -84,7 +84,9 @@ After the user answers questions 4-6 (or provides enough context from Group 1 to
 3. **Test coverage gaps** (from Test Scout) — use these to suggest additional acceptance criteria in Group 3
 4. **Similar patterns** (from Test Scout) — reference these when helping the user write requirements ("there's a similar toolbar in X that handles this by...")
 
-Present the merged findings to the user as part of question 5, and use them to enrich the Technical Context section of the ticket.
+Use these findings for **internal reasoning** — which files to list in Technical Context, which edge cases to suggest as AC, which patterns to point the user toward. Do **not** dump the full blast radius into the ticket. In the Technical Context section, list only the files the implementation will directly touch, plus surprising dependencies the user would otherwise miss. Everything else stays in your head.
+
+Present the merged findings to the user as part of question 5 for confirmation, but keep the ticket's Technical Context section tight (see Conciseness Rules in Step 2).
 
 ### Group 3: Acceptance Criteria
 
@@ -111,14 +113,25 @@ Guide the user to refine vague criteria. Transform statements like:
 Ask:
 8. **Does this depend on any other tickets or PRs?** (the system checks "blocked by" links and waits for dependencies)
 9. **Are there any related tickets?** (for linked_issues — logged as warnings)
-10. **Who should review the PR?** (GitHub usernames — merged with repo-level reviewers from repos.json)
-11. **Any breaking changes expected?** (the system documents these in commit footers and the PR)
+10. **Any breaking changes expected?** (the system documents these in commit footers and the PR)
+
+PR reviewers are resolved from repo-level config in `repos.json` at PR creation time — do not ask the user, and do not include a Reviewers section in the ticket body.
 
 ---
 
 ## Step 2: Compose the Ticket
 
 Assemble the ticket from gathered information.
+
+### Conciseness Rules (apply to every section)
+
+The agents read the ticket literally — they need signal, not prose. Keep every section tight:
+
+- **Bullets over paragraphs.** One idea per bullet. No narrative.
+- **No repetition across sections.** Summary ≠ Requirements ≠ Acceptance Criteria. If it's in one, don't restate it in another.
+- **List only what's directly affected.** Technical Context is not a blast-radius dump — it's a pointer to the files the implementation will touch plus any non-obvious dependency.
+- **Omit empty sections.** If there are no Constraints or Breaking Changes, drop the heading entirely. Do not write "N/A" or "None applicable".
+- **Short ≠ vague.** Every bullet must still be specific and testable. Trim filler words, not signal.
 
 ### Title
 - Under 80 characters
@@ -134,34 +147,50 @@ Structure the description in this exact format using **Jira wiki markup** (the J
 ```
 h2. Summary
 
-{2-3 sentences: what this does and why}
+{1-2 sentences max: what + why. No preamble, no restating the title.}
 
 h2. Requirements
 
-* {Requirement 1 — specific, actionable}
-* {Requirement 2 — specific, actionable}
-* {Error handling / edge cases}
-* {Constraints and boundaries}
+* {Short action bullet — one line}
+* {Short action bullet — one line}
+* {Error / edge case bullet}
 
 h2. Technical Context
 
 * Affected files:
 ** {file path 1}
 ** {file path 2}
-* Related services: {upstream/downstream dependencies}
-* Database: {any schema changes}
-* API changes: {any endpoint modifications}
+* Related services: {only non-obvious upstream/downstream — omit sub-bullet if none}
+* Database: {schema changes — omit sub-bullet if none}
+* API changes: {endpoint modifications — omit sub-bullet if none}
 
 h2. Constraints
 
-{Performance, compatibility, security, library constraints}
+* {Terse bullet — performance, compatibility, security, or library constraint}
+
+h2. Acceptance Criteria
+
+# {Given/When/Then criterion 1 — one line}
+# {Given/When/Then criterion 2 — one line}
 
 h2. Breaking Changes
 
-{None | Description of what breaks and migration path}
-
-Reviewers: {comma-separated GitHub usernames}
+{One line describing what breaks + one line migration note. Omit entire section if none.}
 ```
+
+**Always embed Acceptance Criteria in the description body.** They also go in Jira's `Acceptance Criteria` custom field (so agents that parse the field directly still pick them up), but the description must contain them too — otherwise human reviewers don't see them on the ticket page. Keep the two copies identical.
+
+**Section budgets:**
+
+| Section | Budget | Rule |
+|---|---|---|
+| Summary | 1-2 sentences | What + why only |
+| Requirements | Bullets, ≤ 1 line each | No prose paragraphs |
+| Technical Context | Affected files always; sub-bullets only if touched | Omit sub-bullets whose content would be "none" |
+| Acceptance Criteria | Numbered, one line per criterion | Mirror the `Acceptance Criteria` custom field |
+| Constraints | Terse bullets, or omit section | Drop the `h2.` heading if empty — don't write "None" |
+| Breaking Changes | 1-2 lines, or omit section | Drop the `h2.` heading if empty |
+
 
 **Jira wiki markup quick reference:**
 | Markdown | Jira wiki markup |
@@ -180,6 +209,7 @@ Reviewers: {comma-separated GitHub usernames}
 - Array of specific, testable criteria
 - Each maps to one Developer Agent task and one commit
 - Written in Given/When/Then or equivalent testable format
+- **Single-line per criterion where possible.** If a criterion runs long, split it into two rather than nesting prose inside one.
 
 ### Type
 - `Task` — new feature, behavior or technical work (refactoring, infrastructure, config)
@@ -212,14 +242,13 @@ Project: {project_key}
 2. {criterion 2}
 ...
 
---- Reviewers ---
-{reviewers or "None specified (repo defaults will be used)"}
-
 --- Dependencies ---
 {blocked-by tickets or "None"}
 ```
 
 Ask: "Does this look right? Anything to add, change, or remove?"
+
+Note for the user: empty sections (Constraints, Breaking Changes) were omitted intentionally — conciseness is deliberate. Flag anything that feels verbose so we can tighten it before creation.
 
 Iterate until the user confirms.
 
@@ -241,7 +270,13 @@ Before creating the ticket, verify internally:
 | Error cases covered | At least one criterion covers an error/edge case |
 | Technical context present | Files or modules mentioned |
 | Bug has repro steps | (Bug type only) Steps, expected, actual are present |
-| Breaking changes stated | Explicitly "None" or described |
+| Breaking changes stated | Described if present; section omitted if none |
+| Summary is concise | 1-2 sentences max |
+| No cross-section repetition | Summary, Requirements, and Acceptance Criteria don't restate each other |
+| AC line length | Each criterion fits on one line, or is split into two |
+| AC embedded in description | `h2. Acceptance Criteria` section present in the description body |
+| AC also in custom field | `customfield_10251` populated with identical content (Jira mode only) |
+| Custom field arrays | Technology and Team() wrapped in arrays `[{"value": "..."}]`, not bare objects (Jira mode only) |
 
 If any check fails, suggest improvements to the user before proceeding.
 
@@ -285,35 +320,52 @@ Dry run: /start tickets/{ticket_id}.json --dry-run
 ```bash
 source .env
 
-# Find the custom field IDs for Technology and Team()
+# Find the custom field IDs for Technology, Team(), and Acceptance Criteria
 curl -s "${JIRA_URL}/rest/api/2/field" \
-  -H "Authorization: Basic $(echo -n "${JIRA_EMAIL}:${JIRA_API_TOKEN}" | base64)" \
-  | jq '.[] | select(.name == "Technology" or .name == "Team()") | {name, id}'
+  -H "Authorization: Basic $(printf '%s' "${JIRA_EMAIL}:${JIRA_API_TOKEN}" | base64)" \
+  | jq '.[] | select(.name == "Technology" or .name == "Team()" or .name == "Acceptance Criteria") | {name, id}'
 ```
 
-Replace `customfield_XXXXX` (Technology) and `customfield_YYYYY` (Team()) in the payload below with the actual IDs returned.
+Known IDs for the SHRED project (as of 2026-04-23 — verify if re-running):
 
-Create the Jira ticket using the Jira REST API:
+| Field | ID | Shape |
+|---|---|---|
+| Technology | `customfield_10446` | **Array** of `{ "value": "..." }` (allowed: `Frontend`, `Backend`) |
+| Team() | `customfield_10261` | **Array** of `{ "value": "..." }` (allowed: `Shred Squad 03` etc.) |
+| Acceptance Criteria | `customfield_10251` | Plain string (Jira wiki markup) |
+
+**Critical shape gotchas:**
+- Technology and Team() **must be arrays**, even for a single value. A bare object `{ "value": "Frontend" }` will fail with "Specify the value for Technology in an array".
+- Acceptance Criteria is a plain wiki-markup string — populate it **in addition to** the `h2. Acceptance Criteria` section in the description. Both copies identical.
+
+Build the payload via `jq -n` (not inline `-d`) to avoid quote-escaping hell with multi-line wiki markup:
 
 ```bash
 source .env
 
-# Create the ticket
-curl -s -X POST \
-  "${JIRA_URL}/rest/api/2/issue" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $(echo -n "${JIRA_EMAIL}:${JIRA_API_TOKEN}" | base64)" \
-  -d '{
-    "fields": {
-      "project": { "key": "{PROJECT_KEY}" },
-      "summary": "{title}",
-      "issuetype": { "name": "{type}" },
-      "description": "{structured description in Jira wiki markup — h2. for headings, * for bullets, ** for nested bullets, # for numbered lists}",
-      "labels": [{labels}],
-      "customfield_XXXXX": { "value": "Frontend" },
-      "customfield_YYYYY": { "value": "Shred Squad 03" }
+jq -n \
+  --arg summary "{title}" \
+  --arg description "{full Jira wiki markup description, INCLUDING the h2. Acceptance Criteria section}" \
+  --arg ac "{acceptance criteria as wiki markup — numbered list with # prefix, same content as the description's AC section}" \
+  '{
+    fields: {
+      project: { key: "{PROJECT_KEY}" },
+      summary: $summary,
+      issuetype: { name: "{type}" },
+      description: $description,
+      labels: [{labels}],
+      customfield_10251: $ac,
+      customfield_10446: [{ value: "Frontend" }],
+      customfield_10261: [{ value: "Shred Squad 03" }]
     }
-  }'
+  }' > /tmp/ticket-payload.json
+
+curl -s -X POST "${JIRA_URL}/rest/api/2/issue" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(printf '%s' "${JIRA_EMAIL}:${JIRA_API_TOKEN}" | base64)" \
+  --data @/tmp/ticket-payload.json
+
+rm -f /tmp/ticket-payload.json
 ```
 
 After creation:
@@ -349,6 +401,8 @@ During the interview, actively steer the user away from these common problems th
 | "Refactor everything" | Unbounded scope, no testable outcome | Ask for specific refactoring goals with measurable criteria |
 | No technical context | Planner Agent guesses file impacts | Ask which files/modules are involved |
 | Ambiguous pronouns ("it should update it") | Developer Agent may pick the wrong "it" | Ask user to use specific names |
+| Prose where bullets work | Hard to scan, dilutes signal, agents miss detail | Convert to short bullets — one idea per line |
+| Restating the same info across sections | Noise for agents, no added signal | Keep Summary, Requirements, and Acceptance Criteria disjoint |
 
 ---
 
@@ -361,3 +415,4 @@ If the user asks for guidance, share these tips:
 3. **Error cases are first-class criteria** — the agent only handles errors you specify
 4. **Technical context saves time** — naming the files and modules up front helps the Planner produce accurate `files_affected`
 5. **The agent reads exactly what you write** — there is no "obvious" behavior. If you want it, specify it.
+6. **Short ≠ vague.** Be specific *and* brief — "return 401 on expired token" beats a paragraph explaining JWT validation. Conciseness is a signal-to-noise goal, not a detail cut.
