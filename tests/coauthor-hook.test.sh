@@ -92,5 +92,47 @@ rc=0
 bash "$INSTALLER" "$tmp/does-not-exist" >/dev/null 2>&1 || rc=$?
 assert_exit "$rc" "1" "nonexistent worktree path fails fast"
 
+# --- core.hooksPath override is detected and pinned per-worktree ---
+# Simulates the real-world failure mode: a stale core.hooksPath in the
+# repo's local config redirects hook lookup, so the hook we install into
+# $GIT_DIR/hooks never runs. Installer must detect this and pin an override.
+repo3="$tmp/repo3"
+mkdir -p "$repo3"
+git -C "$repo3" init --initial-branch=main -q
+git -C "$repo3" config user.name "Test User"
+git -C "$repo3" config user.email "test@example.com"
+# Point hooksPath at an unrelated, empty directory to simulate the override.
+decoy_hooks="$tmp/decoy-hooks"
+mkdir -p "$decoy_hooks"
+git -C "$repo3" config core.hooksPath "$decoy_hooks"
+
+out=$(bash "$INSTALLER" "$repo3" 2>/dev/null) || true
+assert_contains "$out" '"hookspath_pinned":true' "override detected and pinned"
+
+# Effective hooksPath now points back at our per-worktree hooks dir.
+effective=$(git -C "$repo3" rev-parse --git-path hooks)
+if [[ "$effective" != /* ]]; then effective="$repo3/$effective"; fi
+expected="$repo3/.git/hooks"
+effective_abs=$(cd "$(dirname "$effective")" && pwd -P)/$(basename "$effective")
+expected_abs=$(cd "$(dirname "$expected")" && pwd -P)/$(basename "$expected")
+assert_eq "$effective_abs" "$expected_abs" "effective hooksPath is pinned to per-worktree hooks dir"
+
+# End-to-end: a commit now gets the trailer despite the repo-level override.
+echo "content" > "$repo3/file.txt"
+git -C "$repo3" add file.txt
+git -C "$repo3" commit -m "feat(test): commit under hooksPath override" -q
+msg=$(git -C "$repo3" log -1 --pretty=%B)
+count=$(echo "$msg" | grep -c "^Co-Authored-By: Claude <noreply@anthropic.com>$" || true)
+assert_eq "$count" "1" "trailer added even when core.hooksPath was overridden"
+
+# Re-running the installer is idempotent — pinning is a no-op after the first pass.
+out=$(bash "$INSTALLER" "$repo3" 2>/dev/null) || true
+assert_contains "$out" '"hookspath_pinned":false' "second install is a no-op (already pinned)"
+
+# --- No override → no pinning ---
+# When core.hooksPath isn't set, installer should not touch worktree config.
+out=$(bash "$INSTALLER" "$repo" 2>/dev/null) || true
+assert_contains "$out" '"hookspath_pinned":false' "no pinning when no override is set"
+
 echo ""
 test_summary

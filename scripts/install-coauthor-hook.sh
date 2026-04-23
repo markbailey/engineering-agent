@@ -89,8 +89,48 @@ if [[ "$action" != "unchanged" ]]; then
   chmod +x "$hook_file"
 fi
 
+# --- Guard against core.hooksPath override ---
+# If core.hooksPath is set (globally, or in the repo's shared config), git
+# redirects hook lookup away from the per-worktree $GIT_DIR/hooks folder we
+# just wrote into, so our hook never runs. Detect this via rev-parse (which
+# reports the effective path after overrides), then pin a per-worktree
+# override so our hook is always used. Scoped to this worktree only — the
+# user's personal checkout is not touched.
+hookspath_pinned="false"
+effective_hooks=$(git -C "$wt_path" rev-parse --git-path hooks 2>/dev/null || true)
+if [[ -n "$effective_hooks" ]]; then
+  if [[ "$effective_hooks" != /* ]]; then
+    effective_hooks="$wt_path/$effective_hooks"
+  fi
+  # Canonicalise via parent dir — the target dir may not exist yet when
+  # core.hooksPath points somewhere outside the repo.
+  canon_path() {
+    local p="$1" d b
+    d=$(dirname "$p"); b=$(basename "$p")
+    if [[ -d "$d" ]]; then
+      printf '%s/%s\n' "$(cd "$d" && pwd -P)" "$b"
+    else
+      printf '%s\n' "$p"
+    fi
+  }
+  eff_abs=$(canon_path "$effective_hooks")
+  ours_abs=$(canon_path "$hooks_dir")
+  if [[ "$eff_abs" != "$ours_abs" ]]; then
+    # extensions.worktreeConfig must be enabled on the shared repo config
+    # for `git config --worktree` to write to the per-worktree config file.
+    # Idempotent — already-true is a no-op.
+    git -C "$wt_path" config extensions.worktreeConfig true >/dev/null 2>&1 || true
+    if git -C "$wt_path" config --worktree core.hooksPath "$hooks_dir" >/dev/null 2>&1; then
+      hookspath_pinned="true"
+      echo "INFO: core.hooksPath was overridden ($effective_hooks) — pinned per-worktree hooksPath to $hooks_dir" >&2
+    else
+      echo "WARNING: core.hooksPath is overridden and could not be pinned per-worktree; the co-author trailer may not be appended" >&2
+    fi
+  fi
+fi
+
 # Escape the hook path for JSON
 hook_file_json=${hook_file//\\/\\\\}
 hook_file_json=${hook_file_json//\"/\\\"}
-echo "{\"installed\":true,\"hook\":\"$hook_file_json\",\"action\":\"$action\"}"
+echo "{\"installed\":true,\"hook\":\"$hook_file_json\",\"action\":\"$action\",\"hookspath_pinned\":$hookspath_pinned}"
 exit 0

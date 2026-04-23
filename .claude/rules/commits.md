@@ -68,6 +68,8 @@ Enforcement is automatic: `scripts/worktree-init.sh` installs a per-worktree `pr
 
 The hook lives in the worktree's per-worktree git-dir (`.git/worktrees/<name>/hooks/prepare-commit-msg`) so it applies only to agent worktrees and never to a human's personal checkout of the same repo.
 
+If the target repo's local config has `core.hooksPath` set (e.g., for Husky), git would normally redirect hook lookup away from our per-worktree folder and the trailer would be silently dropped. The installer detects this via `git rev-parse --git-path hooks` and, when an override is present, enables `extensions.worktreeConfig` on the shared repo and pins `core.hooksPath` at per-worktree scope so our hook still runs. This is scoped to the agent worktree only — the user's personal checkout is not modified.
+
 ## Commit Validation
 
 QA Agent validates every Developer Agent commit against this convention before marking task complete. Invalid → rejected, Developer Agent rewrites.
