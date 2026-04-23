@@ -11,7 +11,7 @@ All commits follow **Conventional Commits** (`conventionalcommits.org`).
 
 {optional body — what and why, not how}
 
-{required footer for Developer Agent commits — Refs: TICKET-ID, agent signature, and any breaking changes}
+{required footer for Developer Agent commits — Refs: TICKET-ID and any breaking changes; agent signature is recommended but not enforced by the validator}
 ```
 
 ## Commit Types
@@ -60,4 +60,4 @@ The Critic flags undocumented breaking changes at **high** severity.
 
 ## Commit Validation
 
-QA Agent validates every Developer Agent commit against this convention before marking task complete. Invalid → rejected, Developer Agent rewrites.
+QA Agent validates every Developer Agent commit against this convention before marking task complete. Invalid → rejected, Developer Agent rewrites. Validation enforces commit type, description format, line length, and `Refs: TICKET-ID` footer. The agent signature is recommended but not currently enforced by the validator.
